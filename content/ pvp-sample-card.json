@@ -1,0 +1,134 @@
+{
+  "card_id": "BAN-WRD-PVP-001",
+  "card_title": "Conduct structured pre-visit planning before scheduled visits",
+  "condition_context": "Bipolar disorder",
+  "primary_ccm_element": "Delivery System / Work Role Redesign",
+  "workflow_core_activity": ["Routine monitoring", "Treatment optimization", "Follow-up/coordination"],
+  "tags": ["population management", "guideline prompts", "care coordination"],
+  "evidence_maturity": "Literature-supported",
+  "implementation_complexity": "Standard",
+  "status": "Published",
+  "faculty_author": {
+    "name": "TBD",
+    "role": "Clinical Lead, Bipolar Action Network"
+  },
+  "owner_steward": {
+    "name": "TBD",
+    "role": "QI Program Manager, Bipolar Action Network"
+  },
+  "version": "v1.0",
+  "last_updated": "2026-03-12",
+  "grammar": {
+    "trigger": {
+      "description": "An upcoming scheduled appointment for a patient being seen today, tomorrow, or this week.",
+      "trigger_type": "Scheduled event"
+    },
+    "actor": {
+      "primary_role": "Clinician",
+      "supporting_roles": ["Registered Nurse", "Medical Assistant", "Patient Service Coordinator", "Front Desk Staff"]
+    },
+    "action": [
+      {
+        "step_number": 1,
+        "description": "Generate a standardized PVP report containing recent PROs/MBC metrics, current medications, last contact, and a phase-specific checklist.",
+        "actor_role": "Medical Assistant or Registry Staff",
+        "tool_or_asset": "Automated PVP registry report"
+      },
+      {
+        "step_number": 2,
+        "description": "Obtain relevant information and arrange any needed lab testing before the visit.",
+        "actor_role": "Registered Nurse or Medical Assistant",
+        "tool_or_asset": "EHR order set"
+      },
+      {
+        "step_number": 3,
+        "description": "Review the PVP summary, identify care gaps, and assign each gap an owner and due-by date.",
+        "actor_role": "Clinician",
+        "tool_or_asset": "Care-gap report"
+      },
+      {
+        "step_number": 4,
+        "description": "Conduct a brief team huddle (10 minutes max) for at-risk patients. Document the plan with explicit owners and next steps.",
+        "actor_role": "Clinician and care team",
+        "tool_or_asset": "Pre-visit huddle script"
+      },
+      {
+        "step_number": 5,
+        "description": "Use the phase-specific evidence-based checklist during the encounter. Document any deviations with a rationale.",
+        "actor_role": "Clinician",
+        "tool_or_asset": "Phase-specific evidence-based checklist"
+      },
+      {
+        "step_number": 6,
+        "description": "Execute follow-up actions within 72 hours of the visit.",
+        "actor_role": "Assigned gap owner",
+        "tool_or_asset": "Standard outreach scripts"
+      }
+    ],
+    "target": {
+      "description": "Patients with bipolar disorder scheduled for an upcoming visit within 72 hours at a BAN network site.",
+      "eligibility_criteria": [
+        "Active bipolar disorder diagnosis in clinic registry",
+        "Scheduled visit within 24-72 hours",
+        "Visit type defined as eligible per local site definition"
+      ]
+    },
+    "timing": {
+      "description": "Produce PVP report 24-72 hours before the visit. Review at visit start and/or during same-day huddle. Complete follow-ups within 72 hours post-visit.",
+      "frequency": "Per visit",
+      "advance_hours": 24,
+      "follow_up_hours": 72
+    }
+  },
+  "operational_definition": {
+    "summary": "A PVP summary is available in the standard location at least 24 hours before the visit, acknowledged at visit start, and used to drive the encounter and close identified care gaps.",
+    "fidelity_criteria": [
+      "PVP summary available at least 24 hours before the visit in the standard location",
+      "Summary includes current medications, last contact, latest PRO/MBC metrics, and care gaps",
+      "Phase-specific checklist attached and actively used during the encounter",
+      "Each identified care gap has an assigned owner and due-by date",
+      "Brief huddle conducted for at-risk patients and plan documented"
+    ],
+    "prerequisites": [
+      "Registry dataset is reliable enough to populate PVP fields",
+      "Site has agreed on the list of care components and phase-specific checklists",
+      "Site has established a local definition of eligible visits"
+    ]
+  },
+  "measures": {
+    "process_measures": [
+      {
+        "name": "PVP availability rate",
+        "numerator": "Eligible visits with PVP summary available at least 24 hours before the visit",
+        "denominator": "All eligible scheduled visits"
+      },
+      {
+        "name": "Checklist use rate",
+        "numerator": "Eligible visits with documented use of the evidence-based checklist",
+        "denominator": "All eligible scheduled visits"
+      },
+      {
+        "name": "Care gap ownership rate",
+        "numerator": "Identified care gaps with an assigned owner and due-by date",
+        "denominator": "All care gaps identified during PVP review"
+      }
+    ],
+    "outcome_measures": [
+      {
+        "name": "Remission rate",
+        "numerator": "Patients in remission at last eligible visit",
+        "denominator": "All patients with an eligible visit in the measurement period"
+      }
+    ],
+    "balancing_measures": [
+      {
+        "name": "PVP production time",
+        "description": "Median staff minutes to produce the PVP report per visit."
+      },
+      {
+        "name": "Clinician after-hours work time",
+        "description": "Median minutes of clinician after-hours work attributable to PVP documentation."
+      }
+    ]
+  }
+}
