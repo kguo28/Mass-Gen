@@ -1,5 +1,6 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
+import ReactMarkdown from 'react-markdown'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -77,7 +78,21 @@ export default function AiChat() {
                   ? 'bg-green-deep text-white rounded-tr-sm'
                   : 'bg-gray-50-ban text-gray-900-ban rounded-tl-sm'
               }`}>
-                {m.content}
+                {m.role === 'user' ? m.content : (
+                  <ReactMarkdown
+                    components={{
+                      p: ({ children }) => <p className="mb-1 last:mb-0">{children}</p>,
+                      ul: ({ children }) => <ul className="list-disc pl-4 mb-1 space-y-0.5">{children}</ul>,
+                      ol: ({ children }) => <ol className="list-decimal pl-4 mb-1 space-y-0.5">{children}</ol>,
+                      li: ({ children }) => <li>{children}</li>,
+                      strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                      h3: ({ children }) => <p className="font-semibold mt-1">{children}</p>,
+                      hr: () => <hr className="my-1 border-gray-300" />,
+                    }}
+                  >
+                    {m.content}
+                  </ReactMarkdown>
+                )}
               </div>
             </div>
           ))}

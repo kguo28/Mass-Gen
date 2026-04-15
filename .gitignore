@@ -2,3 +2,6 @@ node_modules/
 .next/
 .env.local
 *.node
+rag/index/
+rag/data/
+rag/venv/

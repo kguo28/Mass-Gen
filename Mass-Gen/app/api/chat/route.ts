@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 const client = new Anthropic()
 
-const SYSTEM = `You are the BAN Living Field Guide — an AI assistant helping clinical care centers onboard to the Bipolar Action Network (BAN), a national learning health network dedicated to improving care for patients with bipolar disorder, run out of Mass General Hospital.
+const BASE_SYSTEM = `You are the BAN Living Field Guide — an AI assistant helping clinical care centers onboard to the Bipolar Action Network (BAN), a national learning health network dedicated to improving care for patients with bipolar disorder, run out of Mass General Hospital.
 
 Key facts about BAN:
 - Four onboarding phases: Joining, Training, Registering, Activation
@@ -15,15 +15,44 @@ Key facts about BAN:
 - BAN is grounded in the learning health system framework (NAM Shared Commitments, Margolis et al. NEJM 2025)
 - Contact: bipolaractionnetwork@mgb.org
 
-Be concise, warm, and practical. Answer questions about the onboarding process, documents, timelines, and what to expect. If unsure, direct the user to their BAN onboarding contact.`
+Be concise, warm, and practical. Answer questions about the onboarding process, documents, timelines, and what to expect. If unsure, direct the user to their BAN onboarding contact.
+
+Format responses with short paragraphs and bullet lists. Avoid horizontal rules and H1/H2 headers. Keep responses under 150 words unless detail is explicitly requested.`
+
+const RAG_URL = 'http://localhost:8000'
+
+async function retrieveContext(query: string): Promise<string> {
+  try {
+    const res = await fetch(`${RAG_URL}/retrieve?q=${encodeURIComponent(query)}&k=5`, {
+      signal: AbortSignal.timeout(3000),
+    })
+    if (!res.ok) return ''
+    const { chunks } = await res.json()
+    if (!chunks?.length) return ''
+    return (
+      '\n\nRelevant source material:\n' +
+      (chunks as { source: string; text: string }[])
+        .map((c) => `[${c.source}]\n${c.text}`)
+        .join('\n\n---\n\n')
+    )
+  } catch {
+    return ''
+  }
+}
 
 export async function POST(req: NextRequest) {
   const { messages } = await req.json()
 
+  const lastUserMsg: string =
+    [...messages].reverse().find((m: { role: string }) => m.role === 'user')?.content ?? ''
+
+  const context = await retrieveContext(lastUserMsg)
+  const system = BASE_SYSTEM + context
+
   const response = await client.messages.create({
     model: 'claude-sonnet-4-6',
     max_tokens: 1024,
-    system: SYSTEM,
+    system,
     messages,
   })
 
