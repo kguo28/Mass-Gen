@@ -8,9 +8,11 @@ import BusinessCase from '@/components/BusinessCase'
 import DocLibrary from '@/components/DocLibrary'
 import AiChat from '@/components/AiChat'
 import Dashboard from '@/components/Dashboard'
+import ChangeCardApp from '@/components/ChangeCardApp'
+import { pvpCard } from '@/data/changeCards'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
 
-export type PageId = 'phases' | 'catch22' | 'roles' | 'bizcase' | 'docs' | 'ai' | 'dash'
+export type PageId = 'phases' | 'catch22' | 'roles' | 'bizcase' | 'docs' | 'ai' | 'dash' | 'changecard'
 
 export default function Home() {
   const [activePage, setActivePage] = useState<PageId>('phases')
@@ -26,7 +28,8 @@ export default function Home() {
         {activePage === 'bizcase'  && <BusinessCase />}
         {activePage === 'docs'     && <DocLibrary />}
         {activePage === 'ai'       && <AiChat />}
-        {activePage === 'dash'     && <Dashboard checks={checks} />}
+        {activePage === 'dash'       && <Dashboard checks={checks} />}
+        {activePage === 'changecard' && <ChangeCardApp card={pvpCard} />}
       </main>
     </div>
   )

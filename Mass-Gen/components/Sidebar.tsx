@@ -37,6 +37,12 @@ const NAV: { section: string; items: NavItem[] }[] = [
       { id: 'dash', icon: '▣', label: 'Dashboard' },
     ],
   },
+  {
+    section: 'Improvement',
+    items: [
+      { id: 'changecard', icon: '🗂', label: 'Change cards' },
+    ],
+  },
 ]
 
 function getBadge(pi: number, checks: Record<string, boolean>) {
