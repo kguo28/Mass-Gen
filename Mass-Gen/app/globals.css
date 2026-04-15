@@ -1,0 +1,41 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&family=DM+Serif+Display:ital@0;1&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    color: #1a1916;
+    background: #f8f7f4;
+  }
+}
+
+@layer components {
+  /* Tags */
+  .tag {
+    @apply inline-block text-[10px] font-medium px-1.5 py-0.5 rounded mr-1;
+  }
+  .tag.tm { @apply bg-green-pale text-green-deep; }
+  .tag.tl { @apply bg-amber-pale text-amber-ban; }
+  .tag.ti { @apply bg-purple-pale text-purple-mid; }
+  .tag.tf { @apply bg-blue-pale text-blue-mid; }
+  .tag.tt { @apply bg-gray-100-ban text-gray-600-ban; }
+  .tag.tb { @apply bg-red-pale text-red-mid; }
+
+  /* Phase color classes */
+  .ph-join  { @apply bg-green-pale text-green-deep; }
+  .ph-train { @apply bg-amber-pale text-amber-ban; }
+  .ph-reg   { @apply bg-purple-pale text-purple-mid; }
+  .ph-act   { @apply bg-blue-pale text-blue-mid; }
+  .ph-ref   { @apply bg-gray-100-ban text-gray-600-ban; }
+
+  /* Severity */
+  .sev-hi { @apply text-[10px] font-semibold uppercase tracking-wider text-red-mid bg-red-pale px-1.5 py-0.5 rounded; }
+  .sev-md { @apply text-[10px] font-semibold uppercase tracking-wider text-amber-ban bg-amber-pale px-1.5 py-0.5 rounded; }
+
+  /* Progress bar */
+  .pbar-fill { @apply h-full bg-green-mid rounded-full transition-all duration-300; }
+}
