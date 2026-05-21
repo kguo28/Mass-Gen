@@ -7,7 +7,7 @@ const BAN_COMMITMENTS = [
   },
   {
     q: 'Data infrastructure',
-    a: 'Access to the Phlox registry via Hive Networks — automated QI reports, population management reports, pre-visit planning tools, outcome dashboards, and data quality reports. All HIPAA-compliant.',
+    a: 'Access to the Phlox registry via Hive Networks — automated QI reports, population management reports, outcome dashboards, and data quality reports. Pre-visit planning tools are planned and not yet available in Hive today. All HIPAA-compliant.',
   },
   {
     q: 'Community and collaboration',

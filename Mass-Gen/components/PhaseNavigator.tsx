@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { phases } from '@/data/phases'
+import DocModal, { buildDocBody, findDocByName } from './DocModal'
 
 const TAG_LABELS: Record<string, string> = {
   tl: 'Legal', ti: 'IRB', tt: 'IT/Data', tf: 'Finance', tm: 'Team', tb: 'BAN',
@@ -23,10 +24,18 @@ function getBadge(pi: number, checks: Record<string, boolean>) {
 
 export default function PhaseNavigator({ checks, setChecks }: Props) {
   const [activePhase, setActivePhase] = useState(0)
+  const [modal, setModal] = useState<{ title: string; body: string } | null>(null)
   const p = phases[activePhase]
 
   function toggle(key: string) {
     setChecks(prev => ({ ...prev, [key]: !prev[key] }))
+  }
+
+  function openDocChip(name: string) {
+    const d = findDocByName(name)
+    if (!d) return
+    const body = buildDocBody(d)
+    if (body) setModal(body)
   }
 
   return (
@@ -95,6 +104,19 @@ export default function PhaseNavigator({ checks, setChecks }: Props) {
                       ))}
                       {task.meta && <span>{task.meta}</span>}
                     </div>
+                    {task.docs && task.docs.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                        {task.docs.map(docName => (
+                          <button
+                            key={docName}
+                            onClick={() => openDocChip(docName)}
+                            className="text-[11px] bg-green-pale text-green-deep px-2 py-0.5 rounded hover:bg-green-light hover:text-white transition-colors"
+                          >
+                            📄 {docName}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               )
@@ -102,6 +124,8 @@ export default function PhaseNavigator({ checks, setChecks }: Props) {
           </div>
         ))}
       </div>
+
+      {modal && <DocModal title={modal.title} body={modal.body} onClose={() => setModal(null)} />}
     </div>
   )
 }

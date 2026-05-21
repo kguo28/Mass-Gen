@@ -3,20 +3,25 @@ export interface Catch22 {
   t: string
   b: string
   tip: string
+  docs?: string[]
+  links?: { label: string; url: string }[]
 }
 
 export const catch22s: Catch22[] = [
   {
     sev: 'hi',
     t: 'Legal won\'t start until IRB weighs in — but IRB wants legal clarity first',
-    b: 'Many sites find that their legal team won\'t review the PDUA until the IRB has determined whether participation requires full review or qualifies for ceding to MGB. Simultaneously, the IRB may want to see the PDUA before advising on the reliance pathway. Neither group moves first, and onboarding stalls.',
-    tip: 'Ask BAN to share the IRB summary document and the PDUA sample simultaneously at your initial orientation. Frame the IRB determination as legally independent from PDUA contracting — the reliance question and the contracting question are separate processes that can run in parallel.',
+    b: 'Many sites find that their legal team won\'t review the PDUA until the IRB has determined whether participation requires full local review or whether the site will cede to MGB (BAN\'s recommended pathway). Simultaneously, the IRB may want to see the PDUA before advising on the reliance pathway. Neither group moves first, and onboarding stalls.',
+    tip: 'Ask BAN to share the IRB summary document and the PDUA sample simultaneously at your initial orientation. Frame the IRB determination as legally independent from PDUA contracting — the IRB pathway question (cede vs. keep local) and the contracting question are separate processes that can run in parallel.',
+    docs: ['IRB Ceding Packet', 'PDUA / BAA Template'],
+    links: [{ label: 'SMART IRB framework', url: 'https://smartirb.org/' }],
   },
   {
     sev: 'hi',
     t: 'IT won\'t scope the data work until the PDUA is signed',
     b: 'IT and informatics teams often won\'t commit to data extraction planning until there is a signed data agreement. But PDUA negotiations may require knowing what data is being shared — creating a circular dependency that delays both.',
     tip: 'Ask your IT team to do a preliminary \'pre-decisional technical review\' without committing to build anything. BAN can provide the data dictionary and Data Use Overview early (Phase I) to support this conversation before legal review is complete.',
+    docs: ['PDUA / BAA Template', 'Data Use Overview'],
   },
   {
     sev: 'hi',
@@ -27,8 +32,10 @@ export const catch22s: Catch22[] = [
   {
     sev: 'md',
     t: 'IRB ceding stalls because your IRB office is unfamiliar with SMART IRB',
-    b: 'Some institutional IRB offices are unfamiliar with the SMART IRB framework or the single-IRB ceding model. They may treat it as a novel arrangement requiring full committee review rather than a standard administrative reliance process — adding weeks or months.',
+    b: 'Some institutional IRB offices are unfamiliar with the SMART IRB framework or the single-IRB ceding model. They may treat it as a novel arrangement requiring full committee review rather than a standard administrative reliance process — adding weeks or months. (Ceding is recommended but optional — sites that prefer can run their own local IRB review instead.)',
     tip: 'BAN can provide a short briefing document for your IRB office explaining the SMART IRB framework. Connecting your IRB administrator directly with BAN staff who have supported the process at other institutions often accelerates review.',
+    docs: ['IRB Ceding Packet'],
+    links: [{ label: 'SMART IRB framework', url: 'https://smartirb.org/' }],
   },
   {
     sev: 'md',
@@ -41,5 +48,6 @@ export const catch22s: Catch22[] = [
     t: 'Phlox data setup waits for PDUA, IRB, and IT — three parallel tracks that rarely align',
     b: 'The Phlox technical setup requires data access agreements (tied to PDUA), IRB approval for data sharing, and IT capacity. These three tracks move at different speeds and are often managed by different people. Sites frequently find that two of the three are ready while the third causes a delay of weeks.',
     tip: 'Map all three tracks on a shared timeline at the start of Phase II. Assign a single person (often the Improvement Coordinator) to track dependencies across tracks and flag when one is blocking another. BAN\'s 90-day planning template helps structure this.',
+    docs: ['Hive / Phlox Quick-Start Guide', '90-Day Planning Template'],
   },
 ]

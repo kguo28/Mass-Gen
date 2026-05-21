@@ -16,30 +16,37 @@ interface NavItem {
 
 const NAV: { section: string; items: NavItem[] }[] = [
   {
-    section: 'Onboarding',
+    section: 'Start here',
+    items: [
+      { id: 'hub',         icon: '◆', label: 'Implementation Hub' },
+      { id: 'map',         icon: '◇', label: 'Territory map' },
+      { id: 'measurement', icon: '◐', label: 'Measurement' },
+    ],
+  },
+  {
+    section: 'Orientation arc',
+    items: [
+      { id: 'readiness', icon: '◔', label: 'Readiness check' },
+      { id: 'arc1',      icon: '①', label: 'Step 1: Clinical elements' },
+      { id: 'arc2',      icon: '②', label: 'Step 2: CCM & modules' },
+      { id: 'arc3',      icon: '③', label: 'Step 3: Choose modules' },
+    ],
+  },
+  {
+    section: 'Provisioning track',
     items: [
       { id: 'phases',  icon: '▶', label: 'Phase navigator' },
       { id: 'catch22', icon: '⚠', label: 'Catch-22 radar' },
       { id: 'roles',   icon: '◎', label: 'Your team roles' },
-    ],
-  },
-  {
-    section: 'Tools',
-    items: [
       { id: 'bizcase', icon: '✎', label: 'Business case' },
       { id: 'docs',    icon: '❐', label: 'Document library' },
-      { id: 'ai',      icon: '◑', label: 'Ask the guide' },
+      { id: 'dash',    icon: '▣', label: 'Dashboard' },
     ],
   },
   {
-    section: 'Progress',
+    section: 'Field tools',
     items: [
-      { id: 'dash', icon: '▣', label: 'Dashboard' },
-    ],
-  },
-  {
-    section: 'Improvement',
-    items: [
+      { id: 'ai',         icon: '◑', label: 'Ask the guide' },
       { id: 'changecard', icon: '🗂', label: 'Change cards' },
     ],
   },
@@ -66,7 +73,7 @@ export default function Sidebar({ activePage, setActivePage, checks }: Props) {
       </div>
 
       {/* Nav */}
-      <div className="flex-1 pt-5">
+      <div className="flex-1 pt-3 pb-4">
         {NAV.map(section => (
           <div key={section.section}>
             <div className="text-[10px] tracking-widest uppercase text-white/35 px-6 mb-1 mt-4">{section.section}</div>

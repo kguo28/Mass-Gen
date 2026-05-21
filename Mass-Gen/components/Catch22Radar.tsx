@@ -1,12 +1,21 @@
 'use client'
 import { useState } from 'react'
 import { catch22s } from '@/data/catch22s'
+import DocModal, { buildDocBody, findDocByName } from './DocModal'
 
 export default function Catch22Radar() {
   const [open, setOpen] = useState<Record<number, boolean>>({})
+  const [modal, setModal] = useState<{ title: string; body: string } | null>(null)
 
   function toggle(i: number) {
     setOpen(prev => ({ ...prev, [i]: !prev[i] }))
+  }
+
+  function openDocChip(name: string) {
+    const d = findDocByName(name)
+    if (!d) return
+    const body = buildDocBody(d)
+    if (body) setModal(body)
   }
 
   return (
@@ -38,11 +47,40 @@ export default function Catch22Radar() {
                 <div className="bg-green-pale rounded-lg p-4 text-[13px] text-green-deep leading-relaxed">
                   <strong>Field guide tip:</strong> {c.tip}
                 </div>
+                {((c.docs && c.docs.length) || (c.links && c.links.length)) && (
+                  <div className="mt-4">
+                    <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-400-ban mb-2">Related</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {c.docs?.map(name => (
+                        <button
+                          key={name}
+                          onClick={() => openDocChip(name)}
+                          className="text-[11px] bg-green-pale text-green-deep px-2 py-0.5 rounded hover:bg-green-light hover:text-white transition-colors"
+                        >
+                          📄 {name}
+                        </button>
+                      ))}
+                      {c.links?.map(l => (
+                        <a
+                          key={l.url}
+                          href={l.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[11px] bg-gray-100-ban text-gray-600-ban px-2 py-0.5 rounded hover:bg-green-mid hover:text-white transition-colors"
+                        >
+                          ↗ {l.label}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
         ))}
       </div>
+
+      {modal && <DocModal title={modal.title} body={modal.body} onClose={() => setModal(null)} />}
     </div>
   )
 }

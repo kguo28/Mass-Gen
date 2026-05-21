@@ -1,23 +1,31 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
+import { getNetwork } from '@/networks/registry'
 
 const client = new Anthropic()
 
-const BASE_SYSTEM = `You are the BAN Living Field Guide — an AI assistant helping clinical care centers onboard to the Bipolar Action Network (BAN), a national learning health network dedicated to improving care for patients with bipolar disorder, run out of Mass General Hospital.
+/** Platform-layer preamble — describes the reusable scaffolding the
+ *  Living Field Guide provides. Network-specific content gets appended
+ *  per request from the active NetworkBundle.chatPromptBlock. */
+const PLATFORM_SYSTEM = `You are a Living Field Guide assistant for a Networked Improvement collaborative. The Platform layer (skeleton) is reusable across networks; the Condition layer below specifies the active network's clinical area, modules, and operational realities.
 
-Key facts about BAN:
-- Four onboarding phases: Joining, Training, Registering, Activation
-- Core legal document: PDUA (Participation and Data Use Agreement) + BAA, executed between the site institution and MGH
-- Single central IRB: MGB (Mass General Brigham) — sites cede local IRB oversight rather than conducting a full independent review
-- Data registry: Phlox, hosted on Hive Networks platform. HIPAA-compliant. Reports include QI summaries, population management, pre-visit planning, outcome dashboards
-- Key site roles: Physician Leader/Champion, Improvement Coordinator (Key Contact), Senior Leader/Sponsor, Patient & Family Partners
-- Network activities: bi-annual Community Learning Sessions, monthly webinars, Learning Labs, Phlox Exchange
-- BAN is grounded in the learning health system framework (NAM Shared Commitments, Margolis et al. NEJM 2025)
-- Contact: bipolaractionnetwork@mgb.org
+Framework — the Territory Map regions a site moves through:
+- Basecamp (pre-entry): readiness check + 3-step orientation arc + module selection
+- Provisioning (onboarding): institutional setup (PDUA, IRB, Phlox) + team formation on chosen modules ("Preparing")
+- Expedition (core changes): active PDSA work on selected modules ("Practicing")
+- Deep terrain (advanced work): sustained, integrated practice across the full Chronic Care Model
+- New ground: innovation branches from any region
 
-Be concise, warm, and practical. Answer questions about the onboarding process, documents, timelines, and what to expect. If unsure, direct the user to their BAN onboarding contact.
+The orientation arc (in Basecamp) has 3 steps:
+1. What good bipolar care looks like — seven clinical care elements
+2. How care delivery is organized — the Chronic Care Model with foundational modules placed inside it
+3. Choose 1–2 foundational modules to begin with (soft limit; sites that begin 3+ in parallel typically stall on all)
 
-Format responses with short paragraphs and bullet lists. Avoid horizontal rules and H1/H2 headers. Keep responses under 150 words unless detail is explicitly requested.`
+Cross-cutting themes (Platform layer expectations): every network has a Patient/Youth/Family partnership theme, a Measurement & learning theme, and a Network citizenship theme — present in every region.
+
+Be concise, warm, and practical. When a Team Context block is included in this prompt, use it to scope your answer to where the team actually is (region, hub state, selected modules, currently-loaded module unit). If a module unit is active, prefer answering in terms of that module's work; if not, answer at the orientation level. If unsure, direct the user to the network's onboarding contact.
+
+Format with short paragraphs and bullet lists. Avoid horizontal rules and H1/H2 headers. Keep under 150 words unless detail is explicitly requested.`
 
 const RAG_URL = 'http://localhost:8000'
 
@@ -40,14 +48,52 @@ async function retrieveContext(query: string): Promise<string> {
   }
 }
 
+interface TeamContext {
+  region?: string
+  hubState?: string
+  arcCompleted?: boolean
+  selectedModules?: string[]
+  activeCardId?: string | null
+  activeModuleId?: string | null
+  activeModuleName?: string | null
+  activeModuleKind?: 'clinical' | 'operational' | null
+  synthesis?: string | null
+  /** Network id (e.g. 'ban', 'icn-stub'). The server resolves this to
+   *  a NetworkBundle and injects its chatPromptBlock so the chatbot
+   *  knows which condition it's serving. */
+  networkId?: string
+}
+
+function buildTeamContextBlock(ctx?: TeamContext): string {
+  if (!ctx) return ''
+  const lines: string[] = []
+  if (ctx.region) lines.push(`- Current region: ${ctx.region}`)
+  if (ctx.hubState) lines.push(`- Hub state: ${ctx.hubState}`)
+  if (typeof ctx.arcCompleted === 'boolean') lines.push(`- Orientation arc completed: ${ctx.arcCompleted}`)
+  if (ctx.selectedModules?.length) lines.push(`- Selected modules (in Preparing): ${ctx.selectedModules.join(', ')}`)
+  if (ctx.activeModuleId) {
+    const kind = ctx.activeModuleKind ? ` (${ctx.activeModuleKind})` : ''
+    const name = ctx.activeModuleName ? ` — ${ctx.activeModuleName}` : ''
+    lines.push(`- Currently FOCUSED module${kind}: ${ctx.activeModuleId}${name}. Scope answers to this module unless asked otherwise.`)
+  }
+  if (ctx.activeCardId && ctx.activeCardId !== ctx.activeModuleId) {
+    lines.push(`- Currently loaded Change Card: ${ctx.activeCardId}`)
+  }
+  if (ctx.synthesis) lines.push(`- Readiness synthesis: ${ctx.synthesis}`)
+  if (!lines.length) return ''
+  return `\n\nTeam Context (scope your answer to this):\n${lines.join('\n')}`
+}
+
 export async function POST(req: NextRequest) {
-  const { messages } = await req.json()
+  const { messages, context } = await req.json()
 
   const lastUserMsg: string =
     [...messages].reverse().find((m: { role: string }) => m.role === 'user')?.content ?? ''
 
-  const context = await retrieveContext(lastUserMsg)
-  const system = BASE_SYSTEM + context
+  const network = getNetwork(context?.networkId)
+  const rag = await retrieveContext(lastUserMsg)
+  const teamCtx = buildTeamContextBlock(context)
+  const system = PLATFORM_SYSTEM + '\n\n--- Active network (Condition layer) ---\n\n' + network.chatPromptBlock + teamCtx + rag
 
   const response = await client.messages.create({
     model: 'claude-sonnet-4-6',

@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { phases } from '@/data/phases'
 
 interface Props {
@@ -17,6 +17,11 @@ const DEMO_SITES = [
 
 export default function Dashboard({ checks }: Props) {
   const [view, setView] = useState<'site' | 'ban'>('site')
+  const [showBan, setShowBan] = useState(false)
+
+  useEffect(() => {
+    setShowBan(new URLSearchParams(window.location.search).get('ban') === '1')
+  }, [])
 
   let done = 0, tot = 0
   let curPh = 'Joining'
@@ -41,24 +46,26 @@ export default function Dashboard({ checks }: Props) {
         </p>
       </div>
 
-      {/* Toggle */}
-      <div className="flex gap-2 mb-6">
-        {(['site', 'ban'] as const).map(v => (
-          <button
-            key={v}
-            onClick={() => setView(v)}
-            className={`px-4 py-2 text-[13px] rounded-lg font-medium transition-all ${
-              view === v
-                ? 'bg-green-deep text-white'
-                : 'bg-white border border-gray-200-ban text-gray-600-ban hover:border-green-mid'
-            }`}
-          >
-            {v === 'site' ? 'Site view' : 'BAN team view'}
-          </button>
-        ))}
-      </div>
+      {/* Toggle (BAN-internal only; surfaced via ?ban=1) */}
+      {showBan && (
+        <div className="flex gap-2 mb-6">
+          {(['site', 'ban'] as const).map(v => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              className={`px-4 py-2 text-[13px] rounded-lg font-medium transition-all ${
+                view === v
+                  ? 'bg-green-deep text-white'
+                  : 'bg-white border border-gray-200-ban text-gray-600-ban hover:border-green-mid'
+              }`}
+            >
+              {v === 'site' ? 'Site view' : 'BAN team view'}
+            </button>
+          ))}
+        </div>
+      )}
 
-      {view === 'site' && (
+      {(!showBan || view === 'site') && (
         <div>
           {/* Stats */}
           <div className="grid grid-cols-4 gap-4 mb-6">
@@ -98,7 +105,7 @@ export default function Dashboard({ checks }: Props) {
         </div>
       )}
 
-      {view === 'ban' && (
+      {showBan && view === 'ban' && (
         <div className="bg-white rounded-[10px] border border-gray-200-ban p-6">
           <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-400-ban mb-4">Active sites</div>
           <div className="space-y-4">

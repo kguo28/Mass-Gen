@@ -1,24 +1,89 @@
 'use client'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
+import { useTeamState } from '@/hooks/useTeamState'
+import { useNetwork } from '@/hooks/useNetwork'
+import { findModule } from '@/data/modules'
 
 interface Message {
   role: 'user' | 'assistant'
   content: string
 }
 
-const SUGGESTED = [
+interface Props {
+  activeCardId?: string | null
+  /** Module the user is currently focused on (set via ModuleSwitcher or by
+   *  opening a module unit). Preferred for chat scoping when set, since it
+   *  covers operational modules too (which don't have changeCardIds). */
+  activeModuleId?: string | null
+}
+
+const SUGGESTED_BASE = [
+  { label: 'Seven clinical care elements', q: 'What are the seven clinical care elements BAN defines?' },
+  { label: 'Foundational modules', q: 'What are the seven foundational modules and how do they sit inside the CCM?' },
+  { label: 'Aligned payment for dyadic practice', q: 'How does Aligned payment work for a dyadic psychiatric practice using PCM codes?' },
   { label: 'What is the PDUA?', q: 'What is the PDUA and what does it require us to sign?' },
-  { label: 'IRB ceding process', q: 'How does IRB ceding to MGB work and how long does it take?' },
-  { label: 'What is Phlox?', q: 'What is the Phlox registry and what data do we submit?' },
-  { label: 'After activation', q: 'What does BAN expect from us once we are fully activated?' },
-  { label: 'What is a learning health network?', q: 'What is a learning health network and why does it matter for bipolar care?' },
+  { label: 'IRB pathway', q: 'How does IRB work in BAN — what are our options if we don\'t want to cede to MGB?' },
 ]
 
-export default function AiChat() {
+export default function AiChat({ activeCardId, activeModuleId }: Props) {
+  const { state, hydrated } = useTeamState()
+  const { networkId } = useNetwork()
+
+  // Prefer activeModuleId (covers operational modules too); fall back to
+  // activeCardId for backwards compat.
+  const focusModuleId = activeModuleId ?? activeCardId ?? null
+  const focusModule = focusModuleId ? findModule(focusModuleId as never) : undefined
+
+  const teamContext = useMemo(() => ({
+    region: state.region,
+    hubState: state.hubState,
+    arcCompleted: state.arcCompleted,
+    selectedModules: state.selectedModules,
+    activeCardId: activeCardId ?? null,
+    activeModuleId: focusModuleId,
+    activeModuleName: focusModule?.name ?? null,
+    activeModuleKind: focusModule?.kind ?? null,
+    synthesis: state.synthesis,
+    networkId,
+  }), [state, activeCardId, focusModuleId, focusModule, networkId])
+
+  const SUGGESTED = useMemo(() => {
+    if (focusModule) {
+      const label = focusModule.name
+      const isOp = focusModule.kind === 'operational'
+      return isOp
+        ? [
+            { label: `What does ${label} cover?`, q: `Summarize what ${label} covers and what a site needs to do in this module.` },
+            { label: 'Where are we likely stuck?', q: `What are common places sites stall in ${label}, and how do they unblock?` },
+            { label: 'Required documents', q: `Which documents are required to make progress on ${label}?` },
+            { label: 'Back to general', q: 'What modules am I currently working on?' },
+          ]
+        : [
+            { label: `What is ${label}?`, q: `Explain ${label} at the level needed to start Preparing it at our site.` },
+            { label: `First PDSA for ${label}`, q: `What would a sensible first PDSA cycle for ${label} look like for a small dyadic practice?` },
+            { label: `Common barriers`, q: `What are the most common barriers sites hit when starting ${label}, and how do they address them?` },
+            { label: 'Back to general', q: 'What are the foundational modules in this network?' },
+          ]
+    }
+    return SUGGESTED_BASE
+  }, [focusModule])
+
+  const welcomeContent = focusModule
+    ? `You're focused on the ${focusModule.name} module${focusModule.kind === 'operational' ? ' (operational)' : ''}. I'll scope my answers to that module unless you ask about something broader.`
+    : "Welcome to the Living Field Guide. I can help with the orientation arc, the clinical care elements, the Chronic Care Model and foundational modules, or institutional setup. What would you like to know?"
+
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: "Welcome to the BAN Living Field Guide. I can help you understand any part of the onboarding process — what a document means, what a phase requires, how to navigate a specific situation at your institution, or what to expect from the BAN team. What would you like to know?" },
+    { role: 'assistant', content: welcomeContent },
   ])
+
+  // If a Change Card is loaded after first render, swap the welcome message
+  useEffect(() => {
+    setMessages(prev => {
+      if (prev.length !== 1 || prev[0].role !== 'assistant') return prev
+      return [{ role: 'assistant', content: welcomeContent }]
+    })
+  }, [welcomeContent])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -43,6 +108,7 @@ export default function AiChat() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: history.map(m => ({ role: m.role, content: m.content })),
+          context: hydrated ? teamContext : undefined,
         }),
       })
       const data = await res.json()
