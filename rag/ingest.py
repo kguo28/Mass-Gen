@@ -48,6 +48,19 @@ def extract_html(path: Path) -> str:
     return soup.get_text(separator="\n")
 
 
+def extract_xlsx(path: Path) -> str:
+    from openpyxl import load_workbook
+    wb = load_workbook(str(path), data_only=True, read_only=True)
+    out = []
+    for sheet in wb.worksheets:
+        out.append(f"### Sheet: {sheet.title}")
+        for row in sheet.iter_rows(values_only=True):
+            cells = [str(c) if c is not None else "" for c in row]
+            if any(c.strip() for c in cells):
+                out.append(" | ".join(cells))
+    return "\n".join(out)
+
+
 def extract(path: Path) -> str:
     suffix = path.suffix.lower()
     if suffix == ".docx":
@@ -56,6 +69,8 @@ def extract(path: Path) -> str:
         return extract_pdf(path)
     elif suffix in (".html", ".htm"):
         return extract_html(path)
+    elif suffix == ".xlsx":
+        return extract_xlsx(path)
     else:
         return path.read_text(encoding="utf-8", errors="ignore")
 
@@ -64,7 +79,7 @@ def main():
     INDEX_DIR.mkdir(exist_ok=True)
     all_chunks = []
     for path in sorted(DATA_DIR.iterdir()):
-        if path.suffix.lower() not in (".docx", ".pdf", ".html", ".htm", ".txt"):
+        if path.suffix.lower() not in (".docx", ".pdf", ".html", ".htm", ".txt", ".xlsx"):
             continue
         print(f"  Processing {path.name}...")
         try:

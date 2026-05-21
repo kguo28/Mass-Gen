@@ -16,10 +16,14 @@ import AiChat from '@/components/AiChat'
 import Dashboard from '@/components/Dashboard'
 import MeasurementPage from '@/components/MeasurementPage'
 import ChangeCardApp from '@/components/ChangeCardApp'
+import ModuleOverview from '@/components/ModuleOverview'
 import ModuleSwitcher from '@/components/ModuleSwitcher'
+import ProgressBar from '@/components/ProgressBar'
+import LockedPlaceholder from '@/components/LockedPlaceholder'
 import { getChangeCard } from '@/data/changeCardRegistry'
 import { findModule, type ModuleId } from '@/data/modules'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
+import { useTeamState, requiredStep } from '@/hooks/useTeamState'
 
 export type PageId =
   | 'hub'
@@ -37,12 +41,16 @@ export type PageId =
   | 'dash'
   | 'measurement'
   | 'changecard'
+  | 'module'
+
+const GATED_ALLOWLIST: PageId[] = ['hub', 'readiness', 'arc1', 'arc2', 'arc3']
 
 export default function Home() {
   const [activePage, setActivePage] = useState<PageId>('hub')
   const [activeCardId, setActiveCardId] = useState<string>('pvp')
   const [activeModuleId, setActiveModuleId] = useState<ModuleId | null>(null)
   const [checks, setChecks] = useLocalStorage<Record<string, boolean>>('ban_checks', {})
+  const { state, hydrated } = useTeamState()
 
   function openChangeCard(cardId: string) {
     if (!getChangeCard(cardId)) return
@@ -50,22 +58,29 @@ export default function Home() {
     setActivePage('changecard')
   }
 
-  /** Single dispatch for opening a module's unit. Routes by Module.unitType
-   *  AND marks the module as the currently-focused one so the switcher chip
-   *  and chatbot context can scope to it. */
+  /** Opening a module always lands on the ModuleOverview wrapper page —
+   *  per v2 spec, the module page is the unit, and the card (or other
+   *  unit type) is launched from within. The wrapper handles missing
+   *  unit content gracefully. */
   function openModule(moduleId: ModuleId): { handled: boolean; module: ReturnType<typeof findModule> } {
     const m = findModule(moduleId)
     if (!m) return { handled: false, module: undefined }
     setActiveModuleId(moduleId)
+    setActivePage('module')
+    return { handled: true, module: m }
+  }
+
+  /** From inside ModuleOverview — launches the module's actual unit
+   *  (Change Card App, Phase Navigator, etc.). */
+  function launchActiveModuleUnit() {
+    if (!activeModuleId) return
+    const m = findModule(activeModuleId)
+    if (!m) return
     if (m.unitType === 'change_card' && m.changeCardId) {
       openChangeCard(m.changeCardId)
-      return { handled: true, module: m }
-    }
-    if (m.unitType === 'phase_navigator') {
+    } else if (m.unitType === 'phase_navigator') {
       setActivePage('phases')
-      return { handled: true, module: m }
     }
-    return { handled: false, module: m }
   }
 
   function clearActiveModule() {
@@ -74,13 +89,56 @@ export default function Home() {
 
   const activeCard = getChangeCard(activeCardId)
 
-  // Hide switcher on the Hub itself (Hub IS the module-overview surface — chip row would duplicate)
-  // and on the arc pages (user is still picking modules there).
-  const hideSwitcher = activePage === 'hub' || activePage === 'arc1' || activePage === 'arc2' || activePage === 'arc3' || activePage === 'readiness'
+  // Wait for state hydration before deciding gate vs full UI — avoids a
+  // flash of the unlocked sidebar before localStorage rehydrates the
+  // basecamp state.
+  if (!hydrated) {
+    return <div className="p-8 text-[13px] text-gray-400-ban">Loading…</div>
+  }
 
+  const currentStep = requiredStep(state)
+  const gateActive = currentStep !== null
+  const pageIsAllowed = !gateActive || GATED_ALLOWLIST.includes(activePage)
+
+  // Hide switcher on Hub itself and arc pages (it would either duplicate or
+  // be premature). Also hide entirely while gated — the switcher refers to
+  // selected modules that don't yet exist.
+  const hideSwitcher =
+    gateActive ||
+    activePage === 'hub' ||
+    activePage === 'arc1' ||
+    activePage === 'arc2' ||
+    activePage === 'arc3' ||
+    activePage === 'readiness'
+
+  // While gated: no sidebar, centered column, ProgressBar at top.
+  if (gateActive) {
+    return (
+      <main className="min-h-screen p-8 max-w-[900px] mx-auto">
+        <ProgressBar
+          activePage={activePage}
+          arcStep={state.arcStep}
+          setActivePage={setActivePage}
+        />
+        {pageIsAllowed ? (
+          <>
+            {activePage === 'hub'       && <Hub setActivePage={setActivePage} openModule={openModule} />}
+            {activePage === 'readiness' && <Readiness setActivePage={setActivePage} />}
+            {activePage === 'arc1'      && <ArcStep1 setActivePage={setActivePage} />}
+            {activePage === 'arc2'      && <ArcStep2 setActivePage={setActivePage} />}
+            {activePage === 'arc3'      && <ArcStep3 setActivePage={setActivePage} />}
+          </>
+        ) : (
+          <LockedPlaceholder currentStep={currentStep} setActivePage={setActivePage} />
+        )}
+      </main>
+    )
+  }
+
+  // Unlocked — full app with sidebar.
   return (
     <div className="flex min-h-screen">
-      <Sidebar activePage={activePage} setActivePage={setActivePage} checks={checks} />
+      <Sidebar activePage={activePage} setActivePage={setActivePage} openModule={openModule} />
       <main className="ml-[240px] flex-1 p-8 max-w-[900px]">
         {!hideSwitcher && (
           <ModuleSwitcher
@@ -104,6 +162,13 @@ export default function Home() {
         {activePage === 'dash'       && <Dashboard checks={checks} />}
         {activePage === 'measurement' && <MeasurementPage />}
         {activePage === 'changecard' && activeCard && <ChangeCardApp card={activeCard} />}
+        {activePage === 'module' && activeModuleId && (
+          <ModuleOverview
+            moduleId={activeModuleId}
+            onLaunchUnit={launchActiveModuleUnit}
+            onBack={() => setActivePage('hub')}
+          />
+        )}
       </main>
     </div>
   )

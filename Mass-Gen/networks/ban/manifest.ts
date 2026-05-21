@@ -24,6 +24,14 @@ export const banNetwork: NetworkBundle = {
   suggestionRules,
   measures,
   crossCuttingThemes,
+  workflowActivities: [
+    'Screening/diagnosis',
+    'Routine monitoring',
+    'Treatment optimization',
+    'Follow-up/coordination',
+    'Safety monitoring',
+    'Recovery supports',
+  ],
   chatPromptBlock: `Network: Bipolar Action Network (BAN), run out of Mass General Hospital.
 
 The seven clinical care elements:

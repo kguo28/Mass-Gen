@@ -15,6 +15,7 @@ import { ccmComponents } from '@/data/ccmComponents'
 import { headlineMeasure, statusFor, STATUS_LABEL, STATUS_COLOR } from '@/data/measures'
 import CrossCuttingStrip from './CrossCuttingStrip'
 import RangerPanel from './RangerPanel'
+import CompletionScreen from './CompletionScreen'
 
 interface OpenModuleResult { handled: boolean; module: FoundationalModule | undefined }
 
@@ -60,6 +61,11 @@ export default function Hub({ setActivePage, openModule }: Props) {
 
   if (!hydrated || !netHydrated) return <div className="text-[13px] text-gray-400-ban">Loading…</div>
 
+  // Post-commit acknowledgement — overrides everything else for one visit.
+  if (state.justCommitted) {
+    return <CompletionScreen />
+  }
+
   const showEmerging = state.hubState === 'emerging' && state.arcCompleted
   const isStub = networkId === 'icn-stub'
 
@@ -96,17 +102,15 @@ export default function Hub({ setActivePage, openModule }: Props) {
       {showEmerging ? (
         <EmergingLayout setActivePage={setActivePage} openModule={openModule} />
       ) : (
-        <BasecampLayout setActivePage={setActivePage} openModule={openModule} />
+        <BasecampLayout setActivePage={setActivePage} />
       )}
 
-      <CrossCuttingStrip />
+      {showEmerging && <CrossCuttingStrip />}
     </div>
   )
 }
 
-function BasecampLayout({ setActivePage, openModule }: Props) {
-  const opModules = operationalModules.filter(m => m.alwaysPresent)
-
+function BasecampLayout({ setActivePage }: Pick<Props, 'setActivePage'>) {
   return (
     <div className="grid grid-cols-[1fr_240px] gap-5">
       <div className="space-y-4">
@@ -136,17 +140,8 @@ function BasecampLayout({ setActivePage, openModule }: Props) {
             <li>How care delivery is organized — the Chronic Care Model with foundational modules placed inside it</li>
             <li>Choose one or two clinical modules to begin with — that choice moves your team out of Basecamp</li>
           </ol>
-          <p className="text-[12px] text-gray-400-ban italic">The arc isn&apos;t a gate. Take it at your pace.</p>
+          <p className="text-[12px] text-gray-400-ban italic">Once you finish all three steps, the rest of the hub unlocks.</p>
         </div>
-
-        {opModules.length > 0 && (
-          <ModuleTrackRow
-            label="Operational track — runs in parallel"
-            modules={opModules}
-            openModule={openModule}
-            ariaHint="Operational modules are always present — every site does them alongside the arc."
-          />
-        )}
       </div>
 
       <RangerPanel notes={BASECAMP_RANGER_NOTES} />
@@ -236,14 +231,9 @@ function EmergingLayout({ setActivePage, openModule }: Props) {
                 </span>
               ))}
             </div>
-            <div className="mt-3">
-              <button
-                onClick={() => setActivePage('arc3')}
-                className="text-[11px] text-green-deep hover:text-green-mid underline"
-              >
-                Reconsider module choice ↻
-              </button>
-            </div>
+            <p className="text-[11px] text-gray-400-ban italic mt-3">
+              Use Site setup → Reconsider module choice if you need to revisit your picks.
+            </p>
           </div>
         )}
       </div>

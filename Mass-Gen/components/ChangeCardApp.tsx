@@ -1,6 +1,9 @@
 'use client'
-import { useState, useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { ChangeCard } from '@/data/changeCards'
+import { CCM_ELEMENT_LABEL, TOOL_TYPE_LABEL } from '@/data/changeCards'
+import { useLocalStorage } from '@/hooks/useLocalStorage'
+import { useTeamState } from '@/hooks/useTeamState'
 
 interface Props { card: ChangeCard }
 
@@ -55,8 +58,8 @@ function readinessScore(scores: Record<string, ReadinessScore>, total: number) {
 }
 
 function visibleBarriers(card: ChangeCard, team: TeamType | null) {
-  const result: { cat: string; barriers: typeof card.barriers[string] }[] = []
-  for (const [cat, barriers] of Object.entries(card.barriers)) {
+  const result: { cat: string; barriers: typeof card.appExtensions.barriers[string] }[] = []
+  for (const [cat, barriers] of Object.entries(card.appExtensions.barriers)) {
     const filtered = barriers.filter(b => !team || !b.hideFor?.includes(team))
     if (filtered.length) result.push({ cat, barriers: filtered })
   }
@@ -66,7 +69,7 @@ function visibleBarriers(card: ChangeCard, team: TeamType | null) {
 function autoSelectedBarriers(card: ChangeCard, team: TeamType | null): string[] {
   if (!team) return []
   const auto: string[] = []
-  for (const barriers of Object.values(card.barriers)) {
+  for (const barriers of Object.values(card.appExtensions.barriers)) {
     barriers.forEach(b => { if (b.autoFor?.includes(team)) auto.push(b.id) })
   }
   return auto
@@ -74,10 +77,10 @@ function autoSelectedBarriers(card: ChangeCard, team: TeamType | null): string[]
 
 function derivedStrategies(card: ChangeCard, selectedBarriers: string[]) {
   const nums = new Set<number>()
-  for (const barriers of Object.values(card.barriers)) {
+  for (const barriers of Object.values(card.appExtensions.barriers)) {
     barriers.forEach(b => { if (selectedBarriers.includes(b.id)) b.strategies.forEach(s => nums.add(s)) })
   }
-  return [...nums].sort().map(n => ({ num: n, ...card.strategies[n] }))
+  return [...nums].sort().map(n => ({ num: n, ...card.appExtensions.strategies[n] }))
 }
 
 function reliability(visitStatuses: Record<number, VisitStatus>, total: number) {
@@ -91,33 +94,43 @@ function reliability(visitStatuses: Record<number, VisitStatus>, total: number) 
   return denom > 0 ? Math.round((completed / denom) * 100) : 0
 }
 
+const INITIAL_STATE: ChangeCardState = {
+  currentPhase: 'assess',
+  phasesCompleted: [],
+  teamComposition: null,
+  readinessScores: {},
+  selectedBarriers: [],
+  currentWorkflow: '',
+  aimStatement: '',
+  pdsa: { what: '', who: '', whoReview: '', patientCount: 0, timeframe: '', predict: '' },
+  visitStatuses: {},
+  study: { worked: '', surprised: '', newBarriers: '' },
+  actDecision: null,
+  actNotes: '',
+  sustainChecks: {},
+  selectedThreats: [],
+}
+
 export default function ChangeCardApp({ card }: Props) {
-  const [state, setState] = useState<ChangeCardState>({
-    currentPhase: 'assess',
-    phasesCompleted: [],
-    teamComposition: null,
-    readinessScores: {},
-    selectedBarriers: [],
-    currentWorkflow: '',
-    aimStatement: '',
-    pdsa: { what: '', who: '', whoReview: '', patientCount: 0, timeframe: '', predict: '' },
-    visitStatuses: {},
-    study: { worked: '', surprised: '', newBarriers: '' },
-    actDecision: null,
-    actNotes: '',
-    sustainChecks: {},
-    selectedThreats: [],
-  })
+  // Destructure v2 schema paths once — keeps inline JSX legible.
+  const { header, aimRationale, careChange, definitionOfDone, measures, toolsResources, implementationNotes, equitySafety, appExtensions } = card
+  const { barriers, strategies: cardStrategies, firstPDSA, patientCounts, sustainabilityThreats, sustainabilityChecklist, labels } = appExtensions
+  const prerequisites = implementationNotes.prerequisites  // formerly card.readiness
+
+  // Persist per card + site so a user can leave & return without losing progress.
+  const { siteKey } = useTeamState()
+  const storageKey = `ban_changecard:${siteKey}:${header.registryKey}`
+  const [state, setState] = useLocalStorage<ChangeCardState>(storageKey, INITIAL_STATE)
 
   const set = (patch: Partial<ChangeCardState>) => setState(s => ({ ...s, ...patch }))
 
   // derived
-  const { pct: rPct, profile: rProfile, answered: rAnswered } = readinessScore(state.readinessScores, card.readiness.length)
-  const allReadinessAnswered = rAnswered === card.readiness.length
+  const { pct: rPct, profile: rProfile, answered: rAnswered } = readinessScore(state.readinessScores, prerequisites.length)
+  const allReadinessAnswered = rAnswered === prerequisites.length
   const visBarriers = useMemo(() => visibleBarriers(card, state.teamComposition), [card, state.teamComposition])
   const autoIds = useMemo(() => autoSelectedBarriers(card, state.teamComposition), [card, state.teamComposition])
   const strategies = useMemo(() => derivedStrategies(card, state.selectedBarriers), [card, state.selectedBarriers])
-  const pcInfo = state.teamComposition ? card.patientCounts[state.teamComposition] : card.patientCounts.other
+  const pcInfo = state.teamComposition ? patientCounts[state.teamComposition] : patientCounts.other
   const visitCount = state.pdsa.patientCount || pcInfo.suggested
   const rel = reliability(state.visitStatuses, visitCount)
 
@@ -149,13 +162,14 @@ export default function ChangeCardApp({ card }: Props) {
       let who = 'our team'
       if (team === 'solo') who = 'I'
       else if (team === 'admin') who = 'myself and my admin support'
-      set({ aimStatement: `By [date], ${who} will complete pre-visit planning for [X]% of eligible visits, reducing care gaps by [Y]%.` })
+      // Seed from the card's authored Aim, then add a measurable template the user fills in.
+      set({ aimStatement: `${aimRationale.aim}\n\nTeam-specific target: By [date], ${who} will complete ${labels.prepRoleLabel} for [X]% of eligible cases, improving [outcome] by [Y]%.` })
     }
   }
 
   function completePlan() {
     if (!state.pdsa.what || !state.pdsa.who) return
-    const pc = state.teamComposition ? card.patientCounts[state.teamComposition] : card.patientCounts.other
+    const pc = state.teamComposition ? patientCounts[state.teamComposition] : patientCounts.other
     setState(s => ({
       ...s,
       currentPhase: 'test',
@@ -196,9 +210,12 @@ export default function ChangeCardApp({ card }: Props) {
     <div className="max-w-[860px]">
       {/* Header */}
       <div className="mb-6">
-        <div className="text-xs uppercase tracking-widest text-[#5a7f5a] mb-1">{card.ccmComponent}</div>
-        <h1 className="font-serif text-2xl text-[#1a3a1a] mb-1">{card.name}</h1>
-        <p className="text-sm text-[#555]">{card.changeConcept}</p>
+        <div className="text-xs uppercase tracking-widest text-[#5a7f5a] mb-1">{CCM_ELEMENT_LABEL[header.primaryCcm]}</div>
+        <h1 className="font-serif text-2xl text-[#1a3a1a] mb-1">{header.title}</h1>
+        <p className="text-sm text-[#555]">{aimRationale.aim}</p>
+        <div className="text-[11px] text-[#888] mt-1">
+          <code>{header.cardId}</code> · v{header.version.replace(/^v/, '')} · {header.evidenceMaturity.replace(/_/g, '-')} · {header.implementationComplexity}
+        </div>
       </div>
 
       {/* Phase tabs */}
@@ -232,6 +249,46 @@ export default function ChangeCardApp({ card }: Props) {
       {/* Assess Phase */}
       {state.currentPhase === 'assess' && (
         <div className="space-y-6">
+          {/* Aim & Mechanism */}
+          <div className="bg-[#f5faf5] border border-[#c8d8c8] rounded-xl p-6">
+            <h2 className="font-semibold text-[#1a3a1a] mb-2">Aim</h2>
+            <p className="text-sm text-[#333] leading-relaxed mb-3">{aimRationale.aim}</p>
+            <div className="text-xs uppercase tracking-widest text-[#5a7f5a] mb-1">Mechanism</div>
+            <p className="text-sm text-[#555] leading-relaxed">{aimRationale.mechanism}</p>
+          </div>
+
+          {/* Care Change Specification — collapsible reference panel */}
+          <details className="bg-white border border-[#c8d8c8] rounded-xl">
+            <summary className="cursor-pointer p-4 font-semibold text-[#1a3a1a] hover:bg-[#fafafa] rounded-xl">
+              Care change specification — Trigger · Actor · Action · Target · Timing
+            </summary>
+            <div className="p-6 pt-2 text-sm space-y-3">
+              <div><span className="font-semibold text-[#444]">Trigger:</span> <span className="text-[#333]">{careChange.trigger}</span></div>
+              <div>
+                <span className="font-semibold text-[#444]">Primary actor:</span> <span className="text-[#333]">{careChange.actors.primary}</span>
+                {careChange.actors.contributing && careChange.actors.contributing.length > 0 && (
+                  <ul className="ml-5 list-disc text-[#555] text-[13px] mt-1">
+                    {careChange.actors.contributing.map((c, i) => <li key={i}>{c}</li>)}
+                  </ul>
+                )}
+              </div>
+              <div>
+                <span className="font-semibold text-[#444]">Action sequence:</span>
+                <ol className="ml-5 list-decimal text-[#333] text-[13px] mt-1 space-y-1">
+                  {careChange.actionSequence.map(s => (
+                    <li key={s.step}>
+                      {s.action}
+                      {s.artifact && <span className="text-[#888] italic"> — artifact: {s.artifact}</span>}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+              <div><span className="font-semibold text-[#444]">Target:</span> <span className="text-[#333]">{careChange.target}</span></div>
+              <div><span className="font-semibold text-[#444]">Timing:</span> <span className="text-[#333]">{careChange.timing}</span></div>
+              {careChange.exclusions && <div><span className="font-semibold text-[#444]">Exclusions:</span> <span className="text-[#555]">{careChange.exclusions}</span></div>}
+            </div>
+          </details>
+
           {/* Team composition */}
           <div className="bg-white border border-[#c8d8c8] rounded-xl p-6">
             <h2 className="font-semibold text-[#1a3a1a] mb-1">Team composition</h2>
@@ -259,7 +316,7 @@ export default function ChangeCardApp({ card }: Props) {
             <h2 className="font-semibold text-[#1a3a1a] mb-1">Readiness check</h2>
             <p className="text-sm text-[#666] mb-4">Score each prerequisite to understand your starting position.</p>
             <div className="space-y-2">
-              {card.readiness.map(item => {
+              {prerequisites.map(item => {
                 const score = state.readinessScores[item.id]
                 return (
                   <div key={item.id} className="flex items-center gap-3 p-3 border border-[#e8e8e8] rounded-lg bg-[#fafafa]">
@@ -345,7 +402,7 @@ export default function ChangeCardApp({ card }: Props) {
           {/* Current workflow */}
           <div className="bg-white border border-[#c8d8c8] rounded-xl p-6">
             <h2 className="font-semibold text-[#1a3a1a] mb-1">Current workflow</h2>
-            <p className="text-sm text-[#666] mb-3">Briefly describe how visits happen now — before any PVP change. This becomes your baseline.</p>
+            <p className="text-sm text-[#666] mb-3">Briefly describe how this work happens now — {labels.baselinePromptHook}. This becomes your baseline.</p>
             <textarea
               value={state.currentWorkflow}
               onChange={e => set({ currentWorkflow: e.target.value })}
@@ -391,6 +448,33 @@ export default function ChangeCardApp({ card }: Props) {
             </div>
           )}
 
+          {/* Tool bundle — derived from card.toolsResources */}
+          {toolsResources.tools.length > 0 && (
+            <div className="bg-white border border-[#c8d8c8] rounded-xl p-6">
+              <h2 className="font-semibold text-[#1a3a1a] mb-1">Tool bundle</h2>
+              <p className="text-sm text-[#666] mb-4">Templates, reports, and scripts your team will use for each action step.</p>
+              <div className="space-y-2">
+                {toolsResources.tools.map((t, i) => (
+                  <div key={i} className="flex items-start gap-3 p-3 border border-[#e8e8e8] rounded-lg bg-[#fafafa]">
+                    <div className="text-xs font-semibold uppercase tracking-wider text-[#5a7f5a] w-32 shrink-0">
+                      {TOOL_TYPE_LABEL[t.type]}
+                    </div>
+                    <div className="flex-1 text-sm text-[#333]">
+                      <div className="font-medium">{t.name}</div>
+                      <div className="text-xs text-[#666] mt-0.5">
+                        Supports step{t.supportsSteps.length > 1 ? 's' : ''} {t.supportsSteps.join(', ')}
+                        {' · '}
+                        {t.link === 'TBD' || t.link === 'to_be_developed'
+                          ? <span className="italic text-[#999]">link TBD</span>
+                          : <a className="text-[#2d5a2d] underline" href={t.link} target="_blank" rel="noreferrer">open →</a>}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Aim statement */}
           <div className="bg-white border border-[#c8d8c8] rounded-xl p-6">
             <h2 className="font-semibold text-[#1a3a1a] mb-1">Aim statement</h2>
@@ -406,12 +490,12 @@ export default function ChangeCardApp({ card }: Props) {
           {/* PDSA Plan card */}
           <div className="bg-white border border-[#c8d8c8] rounded-xl p-6">
             <h2 className="font-semibold text-[#1a3a1a] mb-1">PDSA plan</h2>
-            <p className="text-sm text-[#666] mb-4">Based on the PVP Change Concept Card — adapt to your context.</p>
+            <p className="text-sm text-[#666] mb-4">Based on the {header.title} Change Concept Card — adapt to your context.</p>
 
             {/* Action steps */}
             <div className="mb-4 p-3 bg-[#f5faf5] border border-[#c8d8c8] rounded-lg">
               <div className="text-xs uppercase tracking-widest text-[#5a7f5a] mb-2">Card action steps</div>
-              {card.firstPDSA.actionSteps.map((step, i) => (
+              {firstPDSA.actionSteps.map((step, i) => (
                 <div key={i} className="flex gap-2 text-sm text-[#333] mb-1">
                   <span className="font-semibold text-[#2d5a2d] shrink-0">{i + 1}.</span>
                   {step}
@@ -419,7 +503,7 @@ export default function ChangeCardApp({ card }: Props) {
               ))}
               {(state.teamComposition === 'solo' || state.teamComposition === 'admin') && (
                 <div className="mt-2 pt-2 border-t border-[#c8d8c8] text-xs text-[#555]">
-                  {state.teamComposition === 'solo' ? card.firstPDSA.soloVariant : card.firstPDSA.adminVariant}
+                  {state.teamComposition === 'solo' ? firstPDSA.soloVariant : firstPDSA.adminVariant}
                 </div>
               )}
             </div>
@@ -437,7 +521,7 @@ export default function ChangeCardApp({ card }: Props) {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-[#444] mb-1">Who does PVP prep?</label>
+                  <label className="block text-xs font-semibold text-[#444] mb-1">Who does {labels.prepRoleLabel}?</label>
                   <input
                     type="text"
                     value={state.pdsa.who}
@@ -489,7 +573,7 @@ export default function ChangeCardApp({ card }: Props) {
                   value={state.pdsa.predict}
                   onChange={e => setState(s => ({ ...s, pdsa: { ...s.pdsa, predict: e.target.value } }))}
                   rows={2}
-                  placeholder="e.g. We predict PVP will reduce care gaps by 20% but prep time will exceed 10 min..."
+                  placeholder={labels.predictionExample}
                   className="w-full border border-[#ddd] rounded-lg p-2.5 text-sm resize-none focus:outline-none focus:border-[#2d5a2d]"
                 />
               </div>
@@ -523,7 +607,7 @@ export default function ChangeCardApp({ card }: Props) {
                 Reliability: {rel}%
               </div>
             </div>
-            <p className="text-sm text-[#666] mb-4">Track PVP completion for each visit.</p>
+            <p className="text-sm text-[#666] mb-4">Track {labels.unitLabel} for each visit. Reliability measure: <span className="italic">{measures.reliability[0]?.name ?? 'process completion'}</span>.</p>
             <div className="space-y-2">
               {Array.from({ length: visitCount }, (_, i) => i + 1).map(n => {
                 const status = state.visitStatuses[n]
@@ -662,12 +746,26 @@ export default function ChangeCardApp({ card }: Props) {
             </div>
           </div>
 
+          {/* Definition of Done — v2 spec section 3 (full checklist surfaces in Sustain) */}
+          <div className="bg-white border border-[#c8d8c8] rounded-xl p-6">
+            <h2 className="font-semibold text-[#1a3a1a] mb-1">Definition of done</h2>
+            <p className="text-sm text-[#666] mb-4">For any given instance of this change, all of the following must be observable.</p>
+            <ul className="space-y-1.5">
+              {definitionOfDone.map((item, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-[#333]">
+                  <span className="text-[#2d5a2d] mt-0.5 shrink-0">✓</span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
           {/* Sustainability checklist */}
           <div className="bg-white border border-[#c8d8c8] rounded-xl p-6">
             <h2 className="font-semibold text-[#1a3a1a] mb-1">Sustainability checklist</h2>
             <p className="text-sm text-[#666] mb-4">Complete these steps to protect the change you made.</p>
             <div className="space-y-2">
-              {card.sustainabilityChecklist.map((item, i) => (
+              {sustainabilityChecklist.map((item, i) => (
                 <label key={i} className="flex items-start gap-3 p-3 border border-[#e8e8e8] rounded-lg cursor-pointer hover:bg-[#fafafa]">
                   <input
                     type="checkbox"
@@ -686,7 +784,7 @@ export default function ChangeCardApp({ card }: Props) {
             <h2 className="font-semibold text-[#1a3a1a] mb-1">Sustainability threats</h2>
             <p className="text-sm text-[#666] mb-4">Select any threats that apply — they become your monitoring focus.</p>
             <div className="space-y-1.5">
-              {card.sustainabilityThreats.map(t => {
+              {sustainabilityThreats.map(t => {
                 const sel = state.selectedThreats.includes(t.id)
                 return (
                   <button

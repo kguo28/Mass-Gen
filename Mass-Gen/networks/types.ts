@@ -41,6 +41,11 @@ export interface NetworkBundle {
   /** Cross-cutting themes (CrossCuttingStrip on Hub) */
   crossCuttingThemes: CrossCuttingTheme[]
 
+  /** Network-specific care-process activities a Change Concept Card may
+   *  reference in its Workflow / Core Activity field (Condition Layer
+   *  per the v2 CC Card spec). BAN's list differs from ICN's. */
+  workflowActivities: string[]
+
   /** Network-specific facts that get appended to the chatbot system
    *  prompt. The Platform layer supplies the framing; the network
    *  fills in its own substance. */

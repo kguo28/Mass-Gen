@@ -63,6 +63,7 @@ export default function ArcStep3({ setActivePage }: Props) {
       moduleStates,
       arcCompleted: true,
       arcStep: 3,
+      justCommitted: true,
     })
     setActivePage('hub')
   }

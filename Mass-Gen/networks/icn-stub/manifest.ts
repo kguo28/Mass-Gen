@@ -149,6 +149,12 @@ export const icnStubNetwork: NetworkBundle = {
   suggestionRules,
   measures,
   crossCuttingThemes,
+  workflowActivities: [
+    'Diagnostic confirmation',
+    'Disease activity monitoring',
+    'Growth & nutritional monitoring',
+    'Transition to adult care',
+  ],
   chatPromptBlock: `Network: ICN — Improving Care for Children Network (STUB demo network).
 Clinical area: pediatric inflammatory bowel disease (IBD).
 
