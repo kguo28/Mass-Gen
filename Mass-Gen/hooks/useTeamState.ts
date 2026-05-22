@@ -62,6 +62,17 @@ function readQuery(): { site: string; reset: boolean } {
   }
 }
 
+function freshInitialState(): TeamState {
+  return {
+    ...INITIAL_TEAM_STATE,
+    readiness: null,
+    synthesis: null,
+    selectedModules: [],
+    moduleStates: {},
+    justCommitted: false,
+  }
+}
+
 // ---- Module-level shared store ----
 //
 // Earlier we used local `useState` inside `useTeamState`, which gave every
@@ -71,7 +82,7 @@ function readQuery(): { site: string; reset: boolean } {
 // re-rendered the basecamp welcome. The fix is a single subscribable store
 // that all `useTeamState()` callers read from via useSyncExternalStore.
 
-let storeState: TeamState = INITIAL_TEAM_STATE
+let storeState: TeamState = freshInitialState()
 let storeHydrated = false
 let siteKey = 'default'
 const listeners = new Set<() => void>()
@@ -90,27 +101,31 @@ function persist(next: TeamState) {
   emit()
 }
 
-function hydrateOnce() {
-  if (storeHydrated || typeof window === 'undefined') return
+function hydrateForSite(nextSiteKey?: string) {
+  if (typeof window === 'undefined') return
   const { site, reset } = readQuery()
-  siteKey = site
+  const requestedSiteKey = nextSiteKey || (storeHydrated ? siteKey : site)
+  if (storeHydrated && siteKey === requestedSiteKey) return
+  siteKey = requestedSiteKey
   const key = `${BASE_KEY}:${siteKey}`
   if (reset) {
     window.localStorage.removeItem(key)
-    storeState = INITIAL_TEAM_STATE
+    storeState = freshInitialState()
   } else {
     try {
       const raw = window.localStorage.getItem(key)
-      if (raw) storeState = { ...INITIAL_TEAM_STATE, ...JSON.parse(raw) }
-    } catch {}
+      storeState = raw ? { ...freshInitialState(), ...JSON.parse(raw) } : freshInitialState()
+    } catch {
+      storeState = freshInitialState()
+    }
   }
   storeHydrated = true
   emit()
 }
 
-function subscribe(listener: () => void) {
+function subscribe(listener: () => void, requestedSiteKey?: string) {
   // Lazy hydrate on first subscription. Safe to call repeatedly.
-  hydrateOnce()
+  hydrateForSite(requestedSiteKey)
   listeners.add(listener)
   return () => listeners.delete(listener)
 }
@@ -127,16 +142,24 @@ function getHydratedSnapshot(): boolean {
 function getServerSnapshot(): TeamState { return INITIAL_TEAM_STATE }
 function getServerHydratedSnapshot(): boolean { return false }
 
-export function useTeamState() {
-  const state = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
-  const hydrated = useSyncExternalStore(subscribe, getHydratedSnapshot, getServerHydratedSnapshot)
+export function useTeamState(requestedSiteKey?: string) {
+  const state = useSyncExternalStore(
+    listener => subscribe(listener, requestedSiteKey),
+    getSnapshot,
+    getServerSnapshot,
+  )
+  const hydrated = useSyncExternalStore(
+    listener => subscribe(listener, requestedSiteKey),
+    getHydratedSnapshot,
+    getServerHydratedSnapshot,
+  )
 
   const update = (patch: Partial<TeamState> | ((prev: TeamState) => Partial<TeamState>)) => {
     const p = typeof patch === 'function' ? patch(storeState) : patch
     persist({ ...storeState, ...p })
   }
 
-  const reset = () => persist(INITIAL_TEAM_STATE)
+  const reset = () => persist(freshInitialState())
 
   return { state, update, reset, hydrated, siteKey }
 }
