@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import type { PageId } from '@/app/page'
+import type { AuthSession } from '@/data/demoAccounts'
 import { useTeamState } from '@/hooks/useTeamState'
 import {
   findModule,
@@ -18,6 +19,8 @@ interface Props {
   activePage: PageId
   setActivePage: (p: PageId) => void
   openModule: (id: ModuleId) => OpenModuleResult
+  session: AuthSession
+  onSignOut: () => void
 }
 
 interface SetupItem {
@@ -36,7 +39,7 @@ const SETUP_ITEMS: SetupItem[] = [
 
 const SETUP_IDS = new Set<PageId>(SETUP_ITEMS.map(i => i.id))
 
-export default function Sidebar({ activePage, setActivePage, openModule }: Props) {
+export default function Sidebar({ activePage, setActivePage, openModule, session, onSignOut }: Props) {
   const { state } = useTeamState()
   const setupActive = SETUP_IDS.has(activePage)
   // Expand SITE SETUP when a child is active; otherwise default closed
@@ -123,9 +126,29 @@ export default function Sidebar({ activePage, setActivePage, openModule }: Props
       </div>
 
       {/* Footer */}
-      <div className="px-6 py-5 text-[11px] text-white/35 leading-relaxed border-t border-white/10">
-        Questions? Contact your BAN onboarding lead or email<br />
-        bipolaractionnetwork@mgb.org
+      <div className="border-t border-white/10 px-6 py-5">
+        <div className="mb-4 rounded-md border border-white/10 bg-white/5 p-3">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-white/35">
+            Signed in
+          </div>
+          <div className="mt-1 text-[12px] font-medium leading-snug text-white">
+            {session.siteName}
+          </div>
+          <div className="mt-0.5 truncate text-[11px] text-white/50">
+            {session.displayName}
+          </div>
+          <button
+            type="button"
+            onClick={onSignOut}
+            className="mt-3 w-full rounded bg-white/10 px-3 py-1.5 text-[11px] font-medium text-white/75 transition-colors hover:bg-white/20 hover:text-white"
+          >
+            Sign out
+          </button>
+        </div>
+        <div className="text-[11px] leading-relaxed text-white/35">
+          Questions? Contact your BAN onboarding lead or email<br />
+          bipolaractionnetwork@mgb.org
+        </div>
       </div>
     </nav>
   )

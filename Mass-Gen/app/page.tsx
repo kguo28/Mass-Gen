@@ -20,9 +20,12 @@ import ModuleOverview from '@/components/ModuleOverview'
 import ModuleSwitcher from '@/components/ModuleSwitcher'
 import ProgressBar from '@/components/ProgressBar'
 import LockedPlaceholder from '@/components/LockedPlaceholder'
+import LoginPortal from '@/components/LoginPortal'
+import type { AuthSession } from '@/data/demoAccounts'
 import { getChangeCard } from '@/data/changeCardRegistry'
 import { findModule, type ModuleId } from '@/data/modules'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
+import { useSession } from '@/hooks/useSession'
 import { useTeamState, requiredStep } from '@/hooks/useTeamState'
 
 export type PageId =
@@ -46,11 +49,34 @@ export type PageId =
 const GATED_ALLOWLIST: PageId[] = ['hub', 'readiness', 'arc1', 'arc2', 'arc3']
 
 export default function Home() {
+  const { session, hydrated, signIn, signOut } = useSession()
+
+  if (!hydrated) {
+    return <div className="p-8 text-[13px] text-gray-400-ban">Loading…</div>
+  }
+
+  if (!session) {
+    return <LoginPortal onSignIn={signIn} />
+  }
+
+  return <AuthenticatedApp session={session} onSignOut={signOut} />
+}
+
+function AuthenticatedApp({
+  session,
+  onSignOut,
+}: {
+  session: AuthSession
+  onSignOut: () => void
+}) {
   const [activePage, setActivePage] = useState<PageId>('hub')
   const [activeCardId, setActiveCardId] = useState<string>('pvp')
   const [activeModuleId, setActiveModuleId] = useState<ModuleId | null>(null)
-  const [checks, setChecks] = useLocalStorage<Record<string, boolean>>('ban_checks', {})
-  const { state, hydrated } = useTeamState()
+  const [checks, setChecks] = useLocalStorage<Record<string, boolean>>(
+    `ban_checks:${session.progressKey}`,
+    {},
+  )
+  const { state, hydrated } = useTeamState(session.progressKey)
 
   function openChangeCard(cardId: string) {
     if (!getChangeCard(cardId)) return
@@ -97,7 +123,7 @@ export default function Home() {
   }
 
   const currentStep = requiredStep(state)
-  const gateActive = currentStep !== null
+  const gateActive = session.role === 'site' && currentStep !== null
   const pageIsAllowed = !gateActive || GATED_ALLOWLIST.includes(activePage)
 
   // Hide switcher on Hub itself and arc pages (it would either duplicate or
@@ -115,6 +141,7 @@ export default function Home() {
   if (gateActive) {
     return (
       <main className="min-h-screen p-8 max-w-[900px] mx-auto">
+        <SessionStrip session={session} onSignOut={onSignOut} />
         <ProgressBar
           activePage={activePage}
           arcStep={state.arcStep}
@@ -138,7 +165,13 @@ export default function Home() {
   // Unlocked — full app with sidebar.
   return (
     <div className="flex min-h-screen">
-      <Sidebar activePage={activePage} setActivePage={setActivePage} openModule={openModule} />
+      <Sidebar
+        activePage={activePage}
+        setActivePage={setActivePage}
+        openModule={openModule}
+        session={session}
+        onSignOut={onSignOut}
+      />
       <main className="ml-[240px] flex-1 p-8 max-w-[900px]">
         {!hideSwitcher && (
           <ModuleSwitcher
@@ -159,7 +192,7 @@ export default function Home() {
         {activePage === 'bizcase'    && <BusinessCase />}
         {activePage === 'docs'       && <DocLibrary />}
         {activePage === 'ai'         && <AiChat activeCardId={activeCardId} activeModuleId={activeModuleId} />}
-        {activePage === 'dash'       && <Dashboard checks={checks} />}
+        {activePage === 'dash'       && <Dashboard checks={checks} session={session} />}
         {activePage === 'measurement' && <MeasurementPage />}
         {activePage === 'changecard' && activeCard && <ChangeCardApp card={activeCard} />}
         {activePage === 'module' && activeModuleId && (
@@ -170,6 +203,34 @@ export default function Home() {
           />
         )}
       </main>
+    </div>
+  )
+}
+
+function SessionStrip({
+  session,
+  onSignOut,
+}: {
+  session: AuthSession
+  onSignOut: () => void
+}) {
+  return (
+    <div className="mb-5 flex items-center justify-between gap-4 rounded-[10px] border border-gray-200-ban bg-white px-5 py-3">
+      <div>
+        <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400-ban">
+          Signed in
+        </div>
+        <div className="mt-0.5 text-[13px] font-medium text-gray-900-ban">
+          {session.siteName} · {session.displayName}
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onSignOut}
+        className="rounded-md border border-gray-200-ban px-3 py-1.5 text-[12px] font-medium text-gray-600-ban transition-colors hover:border-green-mid hover:text-green-deep"
+      >
+        Sign out
+      </button>
     </div>
   )
 }
