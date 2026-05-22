@@ -1,27 +1,22 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { DEMO_SITE_ROLLUPS, type AuthSession } from '@/data/demoAccounts'
 import { phases } from '@/data/phases'
 
 interface Props {
   checks: Record<string, boolean>
+  session: AuthSession
 }
 
 const PHASE_NAMES = ['Joining', 'Training', 'Registering', 'Activation']
 
-const DEMO_SITES = [
-  { n: 'Cambridge Health Alliance',  ph: 'Training',     pc: 'ph-train', pct: 38 },
-  { n: 'Northwestern Medicine',      ph: 'Joining',      pc: 'ph-join',  pct: 17 },
-  { n: 'UTSW / PCORI',              ph: 'Registering',  pc: 'ph-reg',   pct: 68 },
-  { n: 'Site #4 (pending LOJ)',      ph: 'Joining',      pc: 'ph-join',  pct: 5  },
-]
-
-export default function Dashboard({ checks }: Props) {
-  const [view, setView] = useState<'site' | 'ban'>('site')
-  const [showBan, setShowBan] = useState(false)
+export default function Dashboard({ checks, session }: Props) {
+  const [view, setView] = useState<'site' | 'ban'>(session.role === 'ban' ? 'ban' : 'site')
+  const showBan = session.role === 'ban'
 
   useEffect(() => {
-    setShowBan(new URLSearchParams(window.location.search).get('ban') === '1')
-  }, [])
+    setView(session.role === 'ban' ? 'ban' : 'site')
+  }, [session.role])
 
   let done = 0, tot = 0
   let curPh = 'Joining'
@@ -42,11 +37,11 @@ export default function Dashboard({ checks }: Props) {
       <div className="mb-6">
         <h1 className="font-serif text-3xl text-gray-900-ban mb-2">Progress dashboard</h1>
         <p className="text-gray-600-ban leading-relaxed">
-          Track onboarding progress — visible to both your site team and the BAN core team.
+          Track onboarding progress for {session.role === 'ban' ? 'the network demo' : session.siteName}.
         </p>
       </div>
 
-      {/* Toggle (BAN-internal only; surfaced via ?ban=1) */}
+      {/* Toggle (BAN-internal only). */}
       {showBan && (
         <div className="flex gap-2 mb-6">
           {(['site', 'ban'] as const).map(v => (
@@ -109,7 +104,7 @@ export default function Dashboard({ checks }: Props) {
         <div className="bg-white rounded-[10px] border border-gray-200-ban p-6">
           <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-400-ban mb-4">Active sites</div>
           <div className="space-y-4">
-            {DEMO_SITES.map(site => (
+            {DEMO_SITE_ROLLUPS.map(site => (
               <div key={site.n} className="flex items-center gap-4">
                 <div className="flex-1">
                   <div className="flex justify-between text-[13px] mb-1.5">
