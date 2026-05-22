@@ -86,16 +86,6 @@ export default function Sidebar({ activePage, setActivePage, openModule, session
           </Section>
         )}
 
-        {/* TOOLS */}
-        <Section label="Tools">
-          <NavItem
-            label="Ask the Ranger"
-            icon="◑"
-            active={activePage === 'ai'}
-            onClick={() => setActivePage('ai')}
-          />
-        </Section>
-
         {/* SITE SETUP (collapsible) */}
         <div>
           <button

@@ -4,6 +4,11 @@ import { findModule, type ModuleId } from '@/data/modules'
 import { moduleOverviews, type DriverNode } from '@/data/moduleOverviews'
 import { ccmComponents } from '@/data/ccmComponents'
 import { getChangeCard } from '@/data/changeCardRegistry'
+import {
+  getModuleResources,
+  KIND_LABEL,
+  type ModuleResource,
+} from '@/data/moduleResources'
 
 interface Props {
   moduleId: ModuleId
@@ -11,7 +16,7 @@ interface Props {
   onBack: () => void
 }
 
-type Tab = 'overview' | 'evidence' | 'theory' | 'media'
+type Tab = 'overview' | 'evidence' | 'theory' | 'media' | 'resources'
 
 export default function ModuleOverview({ moduleId, onLaunchUnit, onBack }: Props) {
   const [tab, setTab] = useState<Tab>('overview')
@@ -36,11 +41,14 @@ export default function ModuleOverview({ moduleId, onLaunchUnit, onBack }: Props
       : module.unitType === 'phase_navigator' ? 'Open phase navigator →'
       : 'Unit coming soon'
 
+  const resources = getModuleResources(moduleId)
+
   const TABS: { id: Tab; label: string }[] = [
     { id: 'overview',  label: 'Overview' },
     { id: 'evidence',  label: 'Evidence summary' },
     { id: 'theory',    label: 'Theory of improvement' },
     { id: 'media',     label: 'Media' },
+    { id: 'resources', label: 'Resources' },
   ]
 
   return (
@@ -148,6 +156,60 @@ export default function ModuleOverview({ moduleId, onLaunchUnit, onBack }: Props
           ) : (
             <Placeholder section="Media" body="Video overview, podcast, and team stories will appear here once authored." />
           )
+        )}
+
+        {tab === 'resources' && (
+          resources.length > 0 ? (
+            <div>
+              <p className="text-[12px] text-gray-600-ban leading-relaxed mb-4">
+                Source documents, tools, and training aids that back this module. Available items download directly; items in development will land here once authored.
+              </p>
+              <div className="space-y-3">
+                {resources.map(r => <ResourceCard key={r.id} resource={r} />)}
+              </div>
+            </div>
+          ) : (
+            <Placeholder section="Resources" body="No source documents cataloged for this module yet." />
+          )
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ResourceCard({ resource: r }: { resource: ModuleResource }) {
+  const available = r.status === 'available'
+  return (
+    <div className="border border-gray-100-ban rounded-[10px] p-4 flex items-start gap-4">
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-green-mid">
+            {KIND_LABEL[r.kind]}
+          </span>
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400-ban bg-gray-50-ban border border-gray-100-ban px-1.5 py-0.5 rounded">
+            {r.format}
+          </span>
+          {r.authoredAt && (
+            <span className="text-[10px] text-gray-400-ban">· authored {r.authoredAt}</span>
+          )}
+        </div>
+        <div className="font-medium text-[13px] text-gray-900-ban mb-1">{r.title}</div>
+        <div className="text-[12px] text-gray-600-ban leading-relaxed">{r.description}</div>
+      </div>
+      <div className="flex-shrink-0">
+        {available ? (
+          <a
+            href={`/api/resources/${r.id}`}
+            download
+            className="inline-flex items-center gap-1.5 bg-green-deep text-white text-[12px] font-medium px-3 py-2 rounded-lg hover:bg-green-mid transition-colors"
+          >
+            Download
+            <span aria-hidden>↓</span>
+          </a>
+        ) : (
+          <span className="inline-flex items-center text-[11px] font-semibold uppercase tracking-wider text-gray-400-ban bg-gray-50-ban border border-gray-100-ban px-2.5 py-1.5 rounded">
+            In development
+          </span>
         )}
       </div>
     </div>

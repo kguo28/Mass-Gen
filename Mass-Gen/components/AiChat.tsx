@@ -16,6 +16,9 @@ interface Props {
    *  opening a module unit). Preferred for chat scoping when set, since it
    *  covers operational modules too (which don't have changeCardIds). */
   activeModuleId?: string | null
+  /** PageId of the page the user is currently on. Forwarded to the chat
+   *  API so answers can be scoped to that page. */
+  activePage?: string | null
 }
 
 const SUGGESTED_BASE = [
@@ -26,7 +29,7 @@ const SUGGESTED_BASE = [
   { label: 'IRB pathway', q: 'How does IRB work in BAN — what are our options if we don\'t want to cede to MGB?' },
 ]
 
-export default function AiChat({ activeCardId, activeModuleId }: Props) {
+export default function AiChat({ activeCardId, activeModuleId, activePage }: Props) {
   const { state, hydrated } = useTeamState()
   const { networkId } = useNetwork()
 
@@ -46,7 +49,8 @@ export default function AiChat({ activeCardId, activeModuleId }: Props) {
     activeModuleKind: focusModule?.kind ?? null,
     synthesis: state.synthesis,
     networkId,
-  }), [state, activeCardId, focusModuleId, focusModule, networkId])
+    activePage: activePage ?? null,
+  }), [state, activeCardId, focusModuleId, focusModule, networkId, activePage])
 
   const SUGGESTED = useMemo(() => {
     if (focusModule) {
@@ -121,17 +125,9 @@ export default function AiChat({ activeCardId, activeModuleId }: Props) {
   }
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="font-serif text-3xl text-gray-900-ban mb-2">Ask the guide</h1>
-        <p className="text-gray-600-ban leading-relaxed">
-          Have a question about the process, a document, or what comes next? The guide draws on BAN&apos;s actual materials to answer.
-        </p>
-      </div>
-
-      <div className="bg-white rounded-[10px] border border-gray-200-ban flex flex-col" style={{ height: '560px' }}>
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+    <div className="flex flex-col h-full min-h-0 bg-white">
+      {/* Messages */}
+      <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-4">
           {messages.map((m, i) => (
             <div key={i} className={`flex gap-3 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
               <div className={`w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-[11px] font-semibold ${
@@ -203,7 +199,6 @@ export default function AiChat({ activeCardId, activeModuleId }: Props) {
             Ask
           </button>
         </div>
-      </div>
     </div>
   )
 }

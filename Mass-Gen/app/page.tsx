@@ -12,8 +12,8 @@ import Catch22Radar from '@/components/Catch22Radar'
 import TeamRoles from '@/components/TeamRoles'
 import BusinessCase from '@/components/BusinessCase'
 import DocLibrary from '@/components/DocLibrary'
-import AiChat from '@/components/AiChat'
 import Dashboard from '@/components/Dashboard'
+import FloatingRanger from '@/components/FloatingRanger'
 import MeasurementPage from '@/components/MeasurementPage'
 import ChangeCardApp from '@/components/ChangeCardApp'
 import ModuleOverview from '@/components/ModuleOverview'
@@ -40,7 +40,6 @@ export type PageId =
   | 'roles'
   | 'bizcase'
   | 'docs'
-  | 'ai'
   | 'dash'
   | 'measurement'
   | 'changecard'
@@ -140,25 +139,32 @@ function AuthenticatedApp({
   // While gated: no sidebar, centered column, ProgressBar at top.
   if (gateActive) {
     return (
-      <main className="min-h-screen p-8 max-w-[900px] mx-auto">
-        <SessionStrip session={session} onSignOut={onSignOut} />
-        <ProgressBar
+      <>
+        <main className="min-h-screen p-8 max-w-[900px] mx-auto">
+          <SessionStrip session={session} onSignOut={onSignOut} />
+          <ProgressBar
+            activePage={activePage}
+            arcStep={state.arcStep}
+            setActivePage={setActivePage}
+          />
+          {pageIsAllowed ? (
+            <>
+              {activePage === 'hub'       && <Hub setActivePage={setActivePage} openModule={openModule} />}
+              {activePage === 'readiness' && <Readiness setActivePage={setActivePage} />}
+              {activePage === 'arc1'      && <ArcStep1 setActivePage={setActivePage} />}
+              {activePage === 'arc2'      && <ArcStep2 setActivePage={setActivePage} />}
+              {activePage === 'arc3'      && <ArcStep3 setActivePage={setActivePage} />}
+            </>
+          ) : (
+            <LockedPlaceholder currentStep={currentStep} setActivePage={setActivePage} />
+          )}
+        </main>
+        <FloatingRanger
           activePage={activePage}
-          arcStep={state.arcStep}
-          setActivePage={setActivePage}
+          activeCardId={activeCardId}
+          activeModuleId={activeModuleId}
         />
-        {pageIsAllowed ? (
-          <>
-            {activePage === 'hub'       && <Hub setActivePage={setActivePage} openModule={openModule} />}
-            {activePage === 'readiness' && <Readiness setActivePage={setActivePage} />}
-            {activePage === 'arc1'      && <ArcStep1 setActivePage={setActivePage} />}
-            {activePage === 'arc2'      && <ArcStep2 setActivePage={setActivePage} />}
-            {activePage === 'arc3'      && <ArcStep3 setActivePage={setActivePage} />}
-          </>
-        ) : (
-          <LockedPlaceholder currentStep={currentStep} setActivePage={setActivePage} />
-        )}
-      </main>
+      </>
     )
   }
 
@@ -191,7 +197,6 @@ function AuthenticatedApp({
         {activePage === 'roles'      && <TeamRoles />}
         {activePage === 'bizcase'    && <BusinessCase />}
         {activePage === 'docs'       && <DocLibrary />}
-        {activePage === 'ai'         && <AiChat activeCardId={activeCardId} activeModuleId={activeModuleId} />}
         {activePage === 'dash'       && <Dashboard checks={checks} session={session} />}
         {activePage === 'measurement' && <MeasurementPage />}
         {activePage === 'changecard' && activeCard && <ChangeCardApp card={activeCard} />}
@@ -203,6 +208,11 @@ function AuthenticatedApp({
           />
         )}
       </main>
+      <FloatingRanger
+        activePage={activePage}
+        activeCardId={activeCardId}
+        activeModuleId={activeModuleId}
+      />
     </div>
   )
 }

@@ -62,11 +62,37 @@ interface TeamContext {
    *  a NetworkBundle and injects its chatPromptBlock so the chatbot
    *  knows which condition it's serving. */
   networkId?: string
+  /** PageId from app/page.tsx — the route the user is currently looking
+   *  at. Lets the chatbot scope its answer to that page (e.g. "you're on
+   *  arc step 2 — here's how the CCM lens helps"). */
+  activePage?: string
+}
+
+const PAGE_LABELS: Record<string, string> = {
+  hub: 'Implementation Hub',
+  map: 'Territory map',
+  readiness: 'Readiness check',
+  arc1: 'Orientation arc · Step 1 (clinical care elements)',
+  arc2: 'Orientation arc · Step 2 (CCM + foundational modules)',
+  arc3: 'Orientation arc · Step 3 (choose starting modules)',
+  phases: 'Site onboarding phase navigator',
+  catch22: 'Catch-22 radar',
+  roles: 'Team roles',
+  bizcase: 'Business case',
+  docs: 'Document library',
+  dash: 'Progress dashboard',
+  measurement: 'Measurement page',
+  changecard: 'Change Card unit',
+  module: 'Module overview',
 }
 
 function buildTeamContextBlock(ctx?: TeamContext): string {
   if (!ctx) return ''
   const lines: string[] = []
+  if (ctx.activePage) {
+    const label = PAGE_LABELS[ctx.activePage] ?? ctx.activePage
+    lines.push(`- Current page the user is looking at: ${label} (id: ${ctx.activePage}). Scope your answer to what the user can see on this page unless they ask about something broader.`)
+  }
   if (ctx.region) lines.push(`- Current region: ${ctx.region}`)
   if (ctx.hubState) lines.push(`- Hub state: ${ctx.hubState}`)
   if (typeof ctx.arcCompleted === 'boolean') lines.push(`- Orientation arc completed: ${ctx.arcCompleted}`)
