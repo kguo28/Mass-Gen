@@ -13,7 +13,7 @@ function siteIdFromUrl(request: Request) {
 }
 
 export async function GET(request: Request) {
-  const session = sessionFromRequest(request)
+  const session = await sessionFromRequest(request)
   const siteId = siteIdFromUrl(request)
 
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -21,11 +21,11 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  return NextResponse.json(readChecklist(siteId))
+  return NextResponse.json(await readChecklist(siteId))
 }
 
 export async function PUT(request: Request) {
-  const session = sessionFromRequest(request)
+  const session = await sessionFromRequest(request)
   const siteId = siteIdFromUrl(request)
   const body = await request.json().catch(() => null)
 
@@ -35,6 +35,6 @@ export async function PUT(request: Request) {
   }
 
   const checks = body?.checks && typeof body.checks === 'object' ? body.checks : {}
-  writeChecklist(siteId, session.userId, checks)
+  await writeChecklist(siteId, session.userId, checks)
   return NextResponse.json({ ok: true })
 }

@@ -8,7 +8,7 @@ import {
 export const runtime = 'nodejs'
 
 export async function POST(request: Request) {
-  const session = sessionFromRequest(request)
+  const session = await sessionFromRequest(request)
   const body = await request.json().catch(() => null)
   const siteId = typeof body?.siteId === 'string' ? body.siteId : ''
   const cardId = typeof body?.cardId === 'string' ? body.cardId : ''
@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  writeModuleInput({
+  await writeModuleInput({
     siteId,
     userId: session.userId,
     moduleId: typeof body?.moduleId === 'string' ? body.moduleId : null,
