@@ -18,6 +18,7 @@ export interface AuthSession {
   siteName: string
   role: UserRole
   progressKey: string
+  sessionToken: string
   signedInAt: string
 }
 
@@ -76,7 +77,8 @@ export function accountToSession(account: DemoAccount): AuthSession {
     siteId: account.siteId,
     siteName: account.siteName,
     role: account.role,
-    progressKey: `${account.siteId}:${account.id}`,
+    progressKey: account.siteId,
+    sessionToken: '',
     signedInAt: new Date().toISOString(),
   }
 }

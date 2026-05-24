@@ -24,7 +24,7 @@ import LoginPortal from '@/components/LoginPortal'
 import type { AuthSession } from '@/data/demoAccounts'
 import { getChangeCard } from '@/data/changeCardRegistry'
 import { findModule, type ModuleId } from '@/data/modules'
-import { useLocalStorage } from '@/hooks/useLocalStorage'
+import { useRemoteChecklist } from '@/hooks/useRemoteChecklist'
 import { useSession } from '@/hooks/useSession'
 import { useTeamState, requiredStep } from '@/hooks/useTeamState'
 
@@ -71,11 +71,8 @@ function AuthenticatedApp({
   const [activePage, setActivePage] = useState<PageId>('hub')
   const [activeCardId, setActiveCardId] = useState<string>('pvp')
   const [activeModuleId, setActiveModuleId] = useState<ModuleId | null>(null)
-  const [checks, setChecks] = useLocalStorage<Record<string, boolean>>(
-    `ban_checks:${session.progressKey}`,
-    {},
-  )
-  const { state, hydrated } = useTeamState(session.progressKey)
+  const [checks, setChecks] = useRemoteChecklist(session)
+  const { state, hydrated } = useTeamState(session.progressKey, session.sessionToken)
 
   function openChangeCard(cardId: string) {
     if (!getChangeCard(cardId)) return
@@ -199,7 +196,7 @@ function AuthenticatedApp({
         {activePage === 'docs'       && <DocLibrary />}
         {activePage === 'dash'       && <Dashboard checks={checks} session={session} />}
         {activePage === 'measurement' && <MeasurementPage />}
-        {activePage === 'changecard' && activeCard && <ChangeCardApp card={activeCard} />}
+        {activePage === 'changecard' && activeCard && <ChangeCardApp card={activeCard} session={session} />}
         {activePage === 'module' && activeModuleId && (
           <ModuleOverview
             moduleId={activeModuleId}
