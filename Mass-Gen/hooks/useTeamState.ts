@@ -1,55 +1,9 @@
 'use client'
 import { useSyncExternalStore } from 'react'
-import type { RegionId } from '@/data/regions'
-import type { ModuleId, ModuleState } from '@/data/modules'
-import type { ReadinessLevel } from '@/data/readinessDomains'
+import { INITIAL_TEAM_STATE, type TeamState } from '@/data/teamState'
 
-export interface ReadinessAnswer {
-  level: ReadinessLevel
-  notes?: string
-}
-
-export type HubState = 'basecamp' | 'emerging' | 'practicing'
-
-export interface TeamState {
-  region: RegionId
-  hubState: HubState
-  arcStep: 0 | 1 | 2 | 3
-  arcCompleted: boolean
-  readiness: Record<string, ReadinessAnswer> | null
-  synthesis: string | null
-  selectedModules: ModuleId[]
-  moduleStates: Partial<Record<ModuleId, ModuleState>>
-  /** Transient flag — set true the moment Arc Step 3 commits modules.
-   *  Hub reads it once to render the post-commit CompletionScreen, then
-   *  clears it on dismiss. Persisted to survive the redirect to /hub. */
-  justCommitted?: boolean
-}
-
-export const INITIAL_TEAM_STATE: TeamState = {
-  region: 'basecamp',
-  hubState: 'basecamp',
-  arcStep: 0,
-  arcCompleted: false,
-  readiness: null,
-  synthesis: null,
-  selectedModules: [],
-  moduleStates: {},
-  justCommitted: false,
-}
-
-export type RequiredStep = 'welcome' | 'readiness' | 'arc1' | 'arc2' | 'arc3' | null
-
-/** Single source of truth for the basecamp gate. Returns the step the
- *  user is required to be on, or null once the arc is complete. */
-export function requiredStep(state: TeamState): RequiredStep {
-  if (state.arcCompleted) return null
-  if (!state.readiness) return 'welcome'
-  if (state.arcStep < 1) return 'readiness'
-  if (state.arcStep < 2) return 'arc1'
-  if (state.arcStep < 3) return 'arc2'
-  return 'arc3'
-}
+export { requiredStep } from '@/data/teamState'
+export type { HubState, ReadinessAnswer, RequiredStep, TeamState } from '@/data/teamState'
 
 const BASE_KEY = 'ban_team_state'
 
@@ -85,6 +39,9 @@ function freshInitialState(): TeamState {
 let storeState: TeamState = freshInitialState()
 let storeHydrated = false
 let siteKey = 'default'
+let sessionToken: string | null = null
+let remoteLoadKey: string | null = null
+let remoteLoadInFlight = false
 const listeners = new Set<() => void>()
 
 function emit() {
@@ -97,15 +54,57 @@ function persist(next: TeamState) {
     try {
       window.localStorage.setItem(`${BASE_KEY}:${siteKey}`, JSON.stringify(next))
     } catch {}
+    persistRemote(siteKey, next)
   }
   emit()
 }
 
-function hydrateForSite(nextSiteKey?: string) {
+function persistRemote(activeSiteKey: string, next: TeamState) {
+  if (!sessionToken || activeSiteKey === 'default') return
+  fetch(`/api/progress?siteId=${encodeURIComponent(activeSiteKey)}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-ban-session': sessionToken,
+    },
+    body: JSON.stringify({ state: next }),
+  }).catch(() => {})
+}
+
+function loadRemote(activeSiteKey: string) {
+  if (!sessionToken || activeSiteKey === 'default') return
+  const key = `${activeSiteKey}:${sessionToken}`
+  if (remoteLoadKey === key || remoteLoadInFlight) return
+  remoteLoadKey = key
+  remoteLoadInFlight = true
+
+  fetch(`/api/progress?siteId=${encodeURIComponent(activeSiteKey)}`, {
+    headers: { 'x-ban-session': sessionToken },
+  })
+    .then(response => response.ok ? response.json() : null)
+    .then(payload => {
+      if (!payload?.state || siteKey !== activeSiteKey) return
+      storeState = { ...freshInitialState(), ...payload.state }
+      try {
+        window.localStorage.setItem(`${BASE_KEY}:${activeSiteKey}`, JSON.stringify(storeState))
+      } catch {}
+      emit()
+    })
+    .catch(() => {})
+    .finally(() => {
+      remoteLoadInFlight = false
+    })
+}
+
+function hydrateForSite(nextSiteKey?: string, nextSessionToken?: string) {
   if (typeof window === 'undefined') return
+  if (nextSessionToken) sessionToken = nextSessionToken
   const { site, reset } = readQuery()
   const requestedSiteKey = nextSiteKey || (storeHydrated ? siteKey : site)
-  if (storeHydrated && siteKey === requestedSiteKey) return
+  if (storeHydrated && siteKey === requestedSiteKey) {
+    loadRemote(siteKey)
+    return
+  }
   siteKey = requestedSiteKey
   const key = `${BASE_KEY}:${siteKey}`
   if (reset) {
@@ -120,12 +119,13 @@ function hydrateForSite(nextSiteKey?: string) {
     }
   }
   storeHydrated = true
+  loadRemote(siteKey)
   emit()
 }
 
-function subscribe(listener: () => void, requestedSiteKey?: string) {
+function subscribe(listener: () => void, requestedSiteKey?: string, nextSessionToken?: string) {
   // Lazy hydrate on first subscription. Safe to call repeatedly.
-  hydrateForSite(requestedSiteKey)
+  hydrateForSite(requestedSiteKey, nextSessionToken)
   listeners.add(listener)
   return () => listeners.delete(listener)
 }
@@ -142,14 +142,14 @@ function getHydratedSnapshot(): boolean {
 function getServerSnapshot(): TeamState { return INITIAL_TEAM_STATE }
 function getServerHydratedSnapshot(): boolean { return false }
 
-export function useTeamState(requestedSiteKey?: string) {
+export function useTeamState(requestedSiteKey?: string, nextSessionToken?: string) {
   const state = useSyncExternalStore(
-    listener => subscribe(listener, requestedSiteKey),
+    listener => subscribe(listener, requestedSiteKey, nextSessionToken),
     getSnapshot,
     getServerSnapshot,
   )
   const hydrated = useSyncExternalStore(
-    listener => subscribe(listener, requestedSiteKey),
+    listener => subscribe(listener, requestedSiteKey, nextSessionToken),
     getHydratedSnapshot,
     getServerHydratedSnapshot,
   )

@@ -3,7 +3,7 @@ import { FormEvent, useState } from 'react'
 import { DEMO_ACCOUNTS, type DemoAccount } from '@/data/demoAccounts'
 
 interface Props {
-  onSignIn: (email: string, accessCode: string) => { ok: boolean; error?: string }
+  onSignIn: (email: string, accessCode: string) => Promise<{ ok: boolean; error?: string }>
 }
 
 export default function LoginPortal({ onSignIn }: Props) {
@@ -11,6 +11,7 @@ export default function LoginPortal({ onSignIn }: Props) {
   const [accessCode, setAccessCode] = useState(DEMO_ACCOUNTS[0]?.accessCode ?? '')
   const [selectedId, setSelectedId] = useState(DEMO_ACCOUNTS[0]?.id ?? '')
   const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
   function chooseAccount(account: DemoAccount) {
     setSelectedId(account.id)
@@ -19,9 +20,11 @@ export default function LoginPortal({ onSignIn }: Props) {
     setError(null)
   }
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const result = onSignIn(email, accessCode)
+    setSubmitting(true)
+    const result = await onSignIn(email, accessCode)
+    setSubmitting(false)
     setError(result.ok ? null : result.error ?? 'Unable to sign in.')
   }
 
@@ -131,9 +134,10 @@ export default function LoginPortal({ onSignIn }: Props) {
 
               <button
                 type="submit"
+                disabled={submitting}
                 className="w-full rounded-md bg-green-deep px-4 py-3 text-[13px] font-semibold text-white transition-colors hover:bg-green-mid"
               >
-                Sign in
+                {submitting ? 'Signing in…' : 'Sign in'}
               </button>
             </form>
           </div>

@@ -1,16 +1,11 @@
 'use client'
 import { useEffect, useState } from 'react'
-import {
-  accountToSession,
-  DEMO_ACCOUNTS,
-  findDemoAccount,
-  type AuthSession,
-} from '@/data/demoAccounts'
+import type { AuthSession } from '@/data/demoAccounts'
 
 const SESSION_KEY = 'ban_auth_session'
 
 function isKnownSession(value: AuthSession | null): value is AuthSession {
-  return !!value && DEMO_ACCOUNTS.some(account => account.id === value.accountId)
+  return !!value && typeof value.sessionToken === 'string' && value.sessionToken.length > 0
 }
 
 export function useSession() {
@@ -29,20 +24,32 @@ export function useSession() {
     }
   }, [])
 
-  function signIn(email: string, accessCode: string): { ok: boolean; error?: string } {
-    const account = findDemoAccount(email, accessCode)
+  async function signIn(email: string, accessCode: string): Promise<{ ok: boolean; error?: string }> {
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, accessCode }),
+      })
+      const payload = await response.json().catch(() => null)
 
-    if (!account) {
+      if (!response.ok || !payload?.session) {
+        return {
+          ok: false,
+          error: payload?.error || 'Email and access code did not match an account.',
+        }
+      }
+
+      const nextSession = payload.session as AuthSession
+      setSession(nextSession)
+      window.localStorage.setItem(SESSION_KEY, JSON.stringify(nextSession))
+      return { ok: true }
+    } catch {
       return {
         ok: false,
-        error: 'Email and access code did not match a demo account.',
+        error: 'Could not reach the login server. Try again after the app finishes starting.',
       }
     }
-
-    const nextSession = accountToSession(account)
-    setSession(nextSession)
-    window.localStorage.setItem(SESSION_KEY, JSON.stringify(nextSession))
-    return { ok: true }
   }
 
   function signOut() {

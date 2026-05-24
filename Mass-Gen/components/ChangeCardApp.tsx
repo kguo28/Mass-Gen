@@ -1,11 +1,15 @@
 'use client'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import type { AuthSession } from '@/data/demoAccounts'
 import type { ChangeCard } from '@/data/changeCards'
 import { CCM_ELEMENT_LABEL, TOOL_TYPE_LABEL } from '@/data/changeCards'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
 import { useTeamState } from '@/hooks/useTeamState'
 
-interface Props { card: ChangeCard }
+interface Props {
+  card: ChangeCard
+  session: AuthSession
+}
 
 type Phase = 'assess' | 'plan' | 'test' | 'sustain'
 type TeamType = 'clinical' | 'admin' | 'solo' | 'other'
@@ -111,7 +115,7 @@ const INITIAL_STATE: ChangeCardState = {
   selectedThreats: [],
 }
 
-export default function ChangeCardApp({ card }: Props) {
+export default function ChangeCardApp({ card, session }: Props) {
   // Destructure v2 schema paths once — keeps inline JSX legible.
   const { header, aimRationale, careChange, definitionOfDone, measures, toolsResources, implementationNotes, equitySafety, appExtensions } = card
   const { barriers, strategies: cardStrategies, firstPDSA, patientCounts, sustainabilityThreats, sustainabilityChecklist, labels } = appExtensions
@@ -123,6 +127,27 @@ export default function ChangeCardApp({ card }: Props) {
   const [state, setState] = useLocalStorage<ChangeCardState>(storageKey, INITIAL_STATE)
 
   const set = (patch: Partial<ChangeCardState>) => setState(s => ({ ...s, ...patch }))
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      fetch('/api/module-inputs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-ban-session': session.sessionToken,
+        },
+        body: JSON.stringify({
+          siteId: session.siteId,
+          moduleId: header.primaryCcm,
+          cardId: header.registryKey,
+          inputType: 'change_card_state',
+          payload: state,
+        }),
+      }).catch(() => {})
+    }, 600)
+
+    return () => window.clearTimeout(timeout)
+  }, [header.primaryCcm, header.registryKey, session.sessionToken, session.siteId, state])
 
   // derived
   const { pct: rPct, profile: rProfile, answered: rAnswered } = readinessScore(state.readinessScores, prerequisites.length)
