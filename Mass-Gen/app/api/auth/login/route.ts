@@ -8,7 +8,7 @@ export async function POST(request: Request) {
   const email = typeof body?.email === 'string' ? body.email : ''
   const accessCode = typeof body?.accessCode === 'string' ? body.accessCode : ''
 
-  const session = login(email, accessCode)
+  const session = await login(email, accessCode)
   if (!session) {
     return NextResponse.json(
       { error: 'Email and access code did not match an account.' },

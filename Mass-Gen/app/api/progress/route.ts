@@ -14,7 +14,7 @@ function siteIdFromUrl(request: Request) {
 }
 
 export async function GET(request: Request) {
-  const session = sessionFromRequest(request)
+  const session = await sessionFromRequest(request)
   const siteId = siteIdFromUrl(request)
 
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -22,11 +22,11 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  return NextResponse.json(readSiteProgress(siteId))
+  return NextResponse.json(await readSiteProgress(siteId))
 }
 
 export async function PUT(request: Request) {
-  const session = sessionFromRequest(request)
+  const session = await sessionFromRequest(request)
   const siteId = siteIdFromUrl(request)
   const body = await request.json().catch(() => null)
 
@@ -35,6 +35,6 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  writeSiteProgress(siteId, session.userId, body?.state as TeamState)
+  await writeSiteProgress(siteId, session.userId, body?.state as TeamState)
   return NextResponse.json({ ok: true })
 }
