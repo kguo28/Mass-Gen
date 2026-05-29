@@ -68,6 +68,22 @@ const PAGE_LABELS: Record<string, string> = {
   module: 'Module overview',
 }
 
+function fallbackAnswer(rag: string) {
+  if (!rag) {
+    return 'I could not find a matching field-guide source in the deployed context yet. Add text or Markdown files under `rag/data`, or ask about a BAN module/readiness topic that is already in the app data.'
+  }
+
+  const excerpt = rag
+    .replace('Relevant source material:', '')
+    .split('\n\n---\n\n')
+    .slice(0, 2)
+    .map(block => block.trim().replace(/\s+/g, ' '))
+    .join('\n\n')
+    .slice(0, 900)
+
+  return `I found this relevant field-guide context:\n\n${excerpt}\n\nIf you want a more synthesized answer, add ANTHROPIC_API_KEY in Vercel so the chatbot can summarize these sources.`
+}
+
 function buildTeamContextBlock(ctx?: TeamContext): string {
   if (!ctx) return ''
   const lines: string[] = []
@@ -103,13 +119,21 @@ export async function POST(req: NextRequest) {
   const teamCtx = buildTeamContextBlock(context)
   const system = PLATFORM_SYSTEM + '\n\n--- Active network (Condition layer) ---\n\n' + network.chatPromptBlock + teamCtx + rag
 
-  const response = await client.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 1024,
-    system,
-    messages,
-  })
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return NextResponse.json({ text: fallbackAnswer(rag) })
+  }
 
-  const text = response.content[0].type === 'text' ? response.content[0].text : ''
-  return NextResponse.json({ text })
+  try {
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1024,
+      system,
+      messages,
+    })
+
+    const text = response.content[0].type === 'text' ? response.content[0].text : ''
+    return NextResponse.json({ text })
+  } catch {
+    return NextResponse.json({ text: fallbackAnswer(rag) })
+  }
 }
