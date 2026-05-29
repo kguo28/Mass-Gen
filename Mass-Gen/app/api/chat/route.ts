@@ -1,8 +1,11 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
 import { getNetwork } from '@/networks/registry'
+import { retrieveContext } from '@/lib/server/rag'
 
 const client = new Anthropic()
+
+export const runtime = 'nodejs'
 
 /** Platform-layer preamble — describes the reusable scaffolding the
  *  Living Field Guide provides. Network-specific content gets appended
@@ -26,27 +29,6 @@ Cross-cutting themes (Platform layer expectations): every network has a Patient/
 Be concise, warm, and practical. When a Team Context block is included in this prompt, use it to scope your answer to where the team actually is (region, hub state, selected modules, currently-loaded module unit). If a module unit is active, prefer answering in terms of that module's work; if not, answer at the orientation level. If unsure, direct the user to the network's onboarding contact.
 
 Format with short paragraphs and bullet lists. Avoid horizontal rules and H1/H2 headers. Keep under 150 words unless detail is explicitly requested.`
-
-const RAG_URL = 'http://localhost:8000'
-
-async function retrieveContext(query: string): Promise<string> {
-  try {
-    const res = await fetch(`${RAG_URL}/retrieve?q=${encodeURIComponent(query)}&k=5`, {
-      signal: AbortSignal.timeout(3000),
-    })
-    if (!res.ok) return ''
-    const { chunks } = await res.json()
-    if (!chunks?.length) return ''
-    return (
-      '\n\nRelevant source material:\n' +
-      (chunks as { source: string; text: string }[])
-        .map((c) => `[${c.source}]\n${c.text}`)
-        .join('\n\n---\n\n')
-    )
-  } catch {
-    return ''
-  }
-}
 
 interface TeamContext {
   region?: string
